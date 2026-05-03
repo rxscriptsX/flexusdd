@@ -20,7 +20,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   return res.status(405).json({ error: "Method not allowed" });
 }
 
-// Función para añadir/actualizar un gremio reciente (llamada desde save-config)
 export function addRecentGuild(guildId: string, guildName?: string, guildIcon?: string | null) {
   const existing = recentGuilds.find((g) => g.id === guildId);
   if (existing) {
