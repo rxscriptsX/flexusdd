@@ -7,25 +7,15 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#23272a", color: "white" }}>
-      <nav
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "1rem 2rem",
-          backgroundColor: "#2c2f33",
-          borderBottom: "1px solid #40444b",
-        }}
-      >
-        <Link
-          href="/dashboard"
-          style={{
-            color: "#5865f2",
-            fontWeight: "bold",
-            fontSize: "1.2rem",
-            textDecoration: "none",
-          }}
-        >
+      <nav style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "1rem 2rem",
+        backgroundColor: "#2c2f33",
+        borderBottom: "1px solid #40444b",
+      }}>
+        <Link href="/dashboard" style={{ color: "#5865f2", fontWeight: "bold", fontSize: "1.2rem", textDecoration: "none" }}>
           FLEXUS Dashboard
         </Link>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
