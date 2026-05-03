@@ -19,35 +19,42 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (session?.accessToken) {
-      console.log("Access token disponible:", session.accessToken.substring(0, 10) + "...");
+      setLoading(true);
       getUserAdminGuilds(session.accessToken)
         .then((guilds) => {
-          console.log("Servidores obtenidos:", guilds);
           setGuilds(guilds);
           setLoading(false);
         })
         .catch((err) => {
-          console.error("Error obteniendo servidores:", err);
-          setError(err.message || "Error desconocido");
+          console.error(err);
+          setError("Error al cargar los servidores.");
           setLoading(false);
         });
     } else if (status === "authenticated" && !session?.accessToken) {
-      console.error("No hay accessToken en la sesión");
-      setError("No se pudo obtener el token de Discord. Revisa la configuración de NextAuth.");
+      setError("No se encontró el token de Discord. Revisa la configuración.");
       setLoading(false);
     }
   }, [session, status]);
 
-  if (loading) return <div>Cargando servidores...</div>;
-  if (error) return <div style={{ color: "red" }}>Error: {error}</div>;
-
   return (
-    <div>
-      <h1>Mis Servidores</h1>
-      {guilds.length === 0 ? (
-        <p>No tienes servidores en común con el bot donde seas administrador.</p>
-      ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+    <div style={styles.container}>
+      <h1 style={styles.title}>🌐 Mis Servidores</h1>
+
+      {loading && <p style={styles.loading}>⏳ Cargando servidores...</p>}
+
+      {error && <div style={styles.errorBox}>❌ {error}</div>}
+
+      {!loading && !error && guilds.length === 0 && (
+        <div style={styles.empty}>
+          <p>No tienes servidores en común con el bot donde seas administrador.</p>
+          <p style={{ fontSize: "0.9rem", color: "#99aab5" }}>
+            Invita a tu bot a un servidor y asegúrate de tener permisos de administrador.
+          </p>
+        </div>
+      )}
+
+      {!loading && !error && guilds.length > 0 && (
+        <div style={styles.guildGrid}>
           {guilds.map((guild: any) => (
             <ServerCard key={guild.id} guild={guild} />
           ))}
@@ -60,3 +67,49 @@ export default function Dashboard() {
 export async function getServerSideProps() {
   return { props: {} };
 }
+
+const styles = {
+  container: {
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding: "2rem 1rem",
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    color: "#ffffff",
+    backgroundColor: "#23272a",
+    minHeight: "100vh",
+  },
+  title: {
+    fontSize: "2rem",
+    marginBottom: "2rem",
+    color: "#5865f2",
+    textAlign: "center" as const,
+  },
+  loading: {
+    textAlign: "center" as const,
+    fontSize: "1.2rem",
+    color: "#99aab5",
+  },
+  errorBox: {
+    backgroundColor: "rgba(237, 66, 69, 0.2)",
+    border: "1px solid #ed4245",
+    borderRadius: "8px",
+    padding: "1rem",
+    margin: "1rem 0",
+    color: "#ed4245",
+    textAlign: "center" as const,
+  },
+  empty: {
+    textAlign: "center" as const,
+    backgroundColor: "#2c2f33",
+    padding: "2rem",
+    borderRadius: "12px",
+    fontSize: "1.1rem",
+    color: "#99aab5",
+  },
+  guildGrid: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    gap: "1.5rem",
+    justifyContent: "center",
+  },
+};
