@@ -1,18 +1,22 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { addRecentGuild } from "./recent-guilds";
 
 const configStore: Record<string, any> = {};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
 
-  const { guildId, botNickname, ...settings } = req.body;
+  const { guildId, botNickname, guildName, guildIcon, ...settings } = req.body;
 
   if (!guildId) return res.status(400).json({ error: "guildId requerido" });
 
-  // Guardar configuración en memoria (reemplazar por BD más adelante)
+  // Guardar configuración en memoria
   configStore[guildId] = { ...configStore[guildId], ...settings, botNickname };
 
-  // Si se quiere cambiar el apodo del bot, lo intentamos
+  // Registrar como reciente
+  addRecentGuild(guildId, guildName || "Servidor desconocido", guildIcon || null);
+
+  // Cambiar apodo si se especificó
   if (botNickname && botNickname.trim() !== "") {
     try {
       const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/@me`, {
