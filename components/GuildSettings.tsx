@@ -24,7 +24,8 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
     botNickname: "",
   });
   const [loading, setLoading] = useState(true);
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [newCmdName, setNewCmdName] = useState("");
   const [newCmdResponse, setNewCmdResponse] = useState("");
 
@@ -55,22 +56,30 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
   }, [guildId]);
 
   const handleSave = async () => {
-    setSaved(false);
+    setSaving(true);
+    setSaveMessage(null);
+
+    // Simular espera de 5 segundos
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
     try {
       const res = await fetch("/api/guild-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guildId, ...settings }),
       });
+
       if (res.ok) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
+        setSaveMessage({ type: "success", text: "✅ Configuración guardada correctamente." });
+        setTimeout(() => setSaveMessage(null), 5000);
       } else {
-        alert("Error al guardar la configuración.");
+        const err = await res.json();
+        setSaveMessage({ type: "error", text: `❌ Error: ${err.error || "No se pudo guardar"}` });
       }
     } catch (error) {
-      console.error(error);
-      alert("Error de conexión.");
+      setSaveMessage({ type: "error", text: "❌ Error de conexión." });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -90,12 +99,13 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
     setSettings({ ...settings, customCommands: updated });
   };
 
-  if (loading) return <div style={{ color: "white", textAlign: "center" }}>Cargando configuración...</div>;
+  if (loading) return <div style={{ textAlign: "center", color: "white" }}>Cargando configuración...</div>;
 
   return (
     <div style={styles.container}>
+      {/* Categoría General */}
       <div style={styles.section}>
-        <h3 style={styles.sectionTitle}>⚙️ Ajustes generales</h3>
+        <h3 style={styles.sectionTitle}>⚙️ General</h3>
         <div style={styles.field}>
           <label style={styles.label}>Prefijo del bot</label>
           <input
@@ -114,12 +124,11 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
             onChange={(e) => setSettings({ ...settings, botNickname: e.target.value })}
             style={styles.input}
           />
-          <small style={{ color: "#99aab5" }}>
-            El bot debe tener permiso "Cambiar apodo" para que funcione.
-          </small>
+          <small style={{ color: "#99aab5" }}>Requiere permiso "Cambiar apodo".</small>
         </div>
       </div>
 
+      {/* Categoría Canales */}
       <div style={styles.section}>
         <h3 style={styles.sectionTitle}>📢 Canales</h3>
         <div style={styles.field}>
@@ -144,6 +153,7 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
         </div>
       </div>
 
+      {/* Categoría Roles */}
       <div style={styles.section}>
         <h3 style={styles.sectionTitle}>🎭 Roles</h3>
         <div style={styles.field}>
@@ -158,6 +168,7 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
         </div>
       </div>
 
+      {/* Categoría Comandos personalizados */}
       <div style={styles.section}>
         <h3 style={styles.sectionTitle}>🔧 Comandos personalizados</h3>
         <p style={{ fontSize: "0.9rem", color: "#99aab5", marginBottom: "0.5rem" }}>
@@ -192,9 +203,32 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
         ))}
       </div>
 
-      <button onClick={handleSave} style={styles.saveButton}>
-        {saved ? "✅ Configuración guardada" : "💾 Guardar configuración"}
-      </button>
+      {/* Botón de guardar con simulación de 5 segundos */}
+      <div style={{ marginTop: "2rem", textAlign: "center" }}>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            ...styles.saveButton,
+            opacity: saving ? 0.7 : 1,
+            cursor: saving ? "not-allowed" : "pointer",
+          }}
+        >
+          {saving ? "⏳ Guardando configuración..." : "💾 Guardar configuración"}
+        </button>
+        {saveMessage && (
+          <div style={{
+            marginTop: "1rem",
+            padding: "0.8rem",
+            borderRadius: "8px",
+            backgroundColor: saveMessage.type === "success" ? "rgba(59,165,92,0.2)" : "rgba(237,66,69,0.2)",
+            color: saveMessage.type === "success" ? "#3ba55c" : "#ed4245",
+            fontWeight: "bold",
+          }}>
+            {saveMessage.text}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -216,6 +250,9 @@ const styles = {
     fontSize: "1.3rem",
     marginBottom: "1rem",
     color: "#5865f2",
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
   },
   field: {
     marginBottom: "1rem",
@@ -271,11 +308,9 @@ const styles = {
     color: "white",
     border: "none",
     borderRadius: "8px",
-    padding: "0.8rem 1.5rem",
+    padding: "0.8rem 2rem",
     fontWeight: "bold",
-    cursor: "pointer",
     fontSize: "1rem",
-    marginTop: "1rem",
     width: "100%",
   },
 };
