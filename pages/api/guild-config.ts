@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-// Almacenamiento temporal en memoria (cámbialo por una base de datos real en producción)
 const configStore: Record<string, any> = {};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
