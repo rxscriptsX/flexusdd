@@ -1,5 +1,6 @@
+// lib/auth.ts
 import { AuthOptions } from "next-auth";
-import DiscordProvider from "@next-auth/discord";
+import DiscordProvider from "next-auth/providers/discord";
 
 export const authOptions: AuthOptions = {
   providers: [
