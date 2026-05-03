@@ -14,12 +14,11 @@ export default function Dashboard() {
   const [results, setResults] = useState<any[]>([]);
   const [searched, setSearched] = useState(false);
 
-  // Redirigir si no está autenticado
   if (status === "unauthenticated") {
     router.push("/login");
     return null;
   }
-  if (status === "loading") return <p>Cargando sesión...</p>;
+  if (status === "loading") return <p style={{ color: "white" }}>Cargando sesión...</p>;
 
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
@@ -27,23 +26,19 @@ export default function Dashboard() {
     setSearched(false);
     setResults([]);
 
-    // Simulamos un pequeño "pensar" (1.5s)
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     try {
       if (serverId.trim()) {
-        // Búsqueda por ID
         const res = await fetch(`/api/server-info?id=${encodeURIComponent(serverId.trim())}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error al buscar el servidor");
         if (data.exists) {
           setResults([data]);
         } else {
-          // Si no existe, mostramos igual con exists: false para ofrecer añadir
           setResults([{ exists: false, id: serverId.trim(), name: "Servidor desconocido", icon: null }]);
         }
       } else if (serverName.trim()) {
-        // Búsqueda por nombre: obtenemos todos los servidores del bot
         const res = await fetch("/api/bot-guilds");
         if (!res.ok) throw new Error("Error al obtener la lista del bot");
         const botGuilds = await res.json();
@@ -61,7 +56,6 @@ export default function Dashboard() {
     }
   };
 
-  // Construir URL de invitación con guild_id
   const inviteUrl = (guildId: string) =>
     `https://discord.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "1459326358248231115"}&scope=bot&permissions=8&guild_id=${guildId}`;
 
@@ -106,30 +100,28 @@ export default function Dashboard() {
               {results.map((guild: any) => {
                 const iconUrl = guild.icon
                   ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128`
-                  : `https://ui-avatars.com/api/?name=${encodeURIComponent(guild.name || "?")}&background=5865f2&color=fff&size=128`;
+                  : null;
 
                 return (
                   <div key={guild.id} style={styles.card}>
-                    <Image src={iconUrl} alt={guild.name} width={64} height={64} style={styles.icon} />
-                    <h3 style={styles.guildName}>{guild.name}</h3>
-                    <div style={{ margin: "0.5rem 0" }}>
-                      {guild.exists ? (
-                        <span style={styles.botActive}>Bot Active</span>
-                      ) : (
-                        <span style={styles.botNotConfigured}>Not Configured</span>
-                      )}
-                    </div>
-                    {guild.exists ? (
-                      <Link href={`/ddservers/${guild.id}`} style={styles.manageButton}>
-                        Manage Server
-                      </Link>
+                    {!guild.exists ? (
+                      <div style={{ color: "#ed4245", fontWeight: "bold", fontSize: "1.2rem", marginBottom: "1rem" }}>
+                        Servidor desconocido
+                      </div>
                     ) : (
-                      <a
-                        href={inviteUrl(guild.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={styles.addButton}
-                      >
+                      <>
+                        {iconUrl && <Image src={iconUrl} alt={guild.name} width={64} height={64} style={styles.icon} />}
+                        <h3 style={styles.guildName}>{guild.name}</h3>
+                        <div style={{ margin: "0.5rem 0" }}>
+                          <span style={styles.botActive}>Bot Active</span>
+                        </div>
+                        <Link href={`/ddservers/${guild.id}`} style={styles.manageButton}>
+                          Manage Server
+                        </Link>
+                      </>
+                    )}
+                    {!guild.exists && (
+                      <a href={inviteUrl(guild.id)} target="_blank" rel="noopener noreferrer" style={styles.addButton}>
                         Add to Server
                       </a>
                     )}
@@ -201,7 +193,6 @@ const styles = {
     fontWeight: "bold",
     cursor: "pointer",
     fontSize: "1rem",
-    transition: "background-color 0.2s",
   },
   results: {
     marginTop: "1rem",
@@ -243,14 +234,6 @@ const styles = {
   botActive: {
     backgroundColor: "#faa61a",
     color: "#000",
-    padding: "0.2rem 0.8rem",
-    borderRadius: "12px",
-    fontSize: "0.8rem",
-    fontWeight: "bold",
-  },
-  botNotConfigured: {
-    backgroundColor: "#5865f2",
-    color: "#fff",
     padding: "0.2rem 0.8rem",
     borderRadius: "12px",
     fontSize: "0.8rem",
