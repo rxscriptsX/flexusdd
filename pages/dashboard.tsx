@@ -1,6 +1,6 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -13,6 +13,27 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const [searched, setSearched] = useState(false);
+  const [recentGuilds, setRecentGuilds] = useState<any[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+
+  useEffect(() => {
+    async function fetchRecent() {
+      try {
+        const res = await fetch("/api/recent-guilds");
+        if (res.ok) {
+          const data = await res.json();
+          setRecentGuilds(data);
+        }
+      } catch (error) {
+        console.error("Error cargando recientes:", error);
+      } finally {
+        setLoadingRecent(false);
+      }
+    }
+    if (status === "authenticated") {
+      fetchRecent();
+    }
+  }, [status]);
 
   if (status === "unauthenticated") {
     router.push("/login");
@@ -97,40 +118,61 @@ export default function Dashboard() {
             <p style={styles.noResults}>No se encontraron servidores con esos datos.</p>
           ) : (
             <div style={styles.guildGrid}>
-              {results.map((guild: any) => {
-                const iconUrl = guild.icon
-                  ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128`
-                  : null;
-
-                return (
-                  <div key={guild.id} style={styles.card}>
-                    {!guild.exists ? (
-                      <div style={{ color: "#ed4245", fontWeight: "bold", fontSize: "1.2rem", marginBottom: "1rem" }}>
-                        Servidor desconocido
-                      </div>
-                    ) : (
-                      <>
-                        {iconUrl && <Image src={iconUrl} alt={guild.name} width={64} height={64} style={styles.icon} />}
-                        <h3 style={styles.guildName}>{guild.name}</h3>
-                        <div style={{ margin: "0.5rem 0" }}>
-                          <span style={styles.botActive}>Bot Active</span>
-                        </div>
-                        <Link href={`/ddservers/${guild.id}`} style={styles.manageButton}>
-                          Manage Server
-                        </Link>
-                      </>
-                    )}
-                    {!guild.exists && (
-                      <a href={inviteUrl(guild.id)} target="_blank" rel="noopener noreferrer" style={styles.addButton}>
-                        Add to Server
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
+              {results.map((guild: any) => (
+                <GuildCard key={guild.id} guild={guild} inviteUrl={inviteUrl} />
+              ))}
             </div>
           )}
         </div>
+      )}
+
+      {/* Sección de servidores recientes */}
+      <div style={{ marginTop: "3rem" }}>
+        <h2 style={styles.recentTitle}>🕒 Servidores recientes</h2>
+        {loadingRecent ? (
+          <p style={{ color: "#99aab5", textAlign: "center" }}>Cargando...</p>
+        ) : recentGuilds.length === 0 ? (
+          <p style={styles.noResults}>No has configurado ningún servidor recientemente.</p>
+        ) : (
+          <div style={styles.guildGrid}>
+            {recentGuilds.map((guild: any) => (
+              <GuildCard key={guild.id} guild={{ ...guild, exists: true }} inviteUrl={inviteUrl} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Componente tarjeta reutilizable
+function GuildCard({ guild, inviteUrl }: { guild: any; inviteUrl: (id: string) => string }) {
+  const iconUrl = guild.icon
+    ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128`
+    : null;
+
+  return (
+    <div style={styles.card}>
+      {!guild.exists ? (
+        <div style={{ color: "#ed2425", fontWeight: "bold", fontSize: "1.2rem", marginBottom: "1rem" }}>
+          Servidor desconocido
+        </div>
+      ) : (
+        <>
+          {iconUrl && <Image src={iconUrl} alt={guild.name} width={64} height={64} style={styles.icon} />}
+          <h3 style={styles.guildName}>{guild.name}</h3>
+          <div style={{ margin: "0.5rem 0" }}>
+            <span style={styles.botActive}>Bot Active</span>
+          </div>
+          <Link href={`/ddservers/${guild.id}`} style={styles.manageButton}>
+            Manage Server
+          </Link>
+        </>
+      )}
+      {!guild.exists && (
+        <a href={inviteUrl(guild.id)} target="_blank" rel="noopener noreferrer" style={styles.addButton}>
+          Add to Server
+        </a>
       )}
     </div>
   );
@@ -154,6 +196,12 @@ const styles = {
     fontSize: "2rem",
     marginBottom: "2rem",
     color: "#5865f2",
+    textAlign: "center" as const,
+  },
+  recentTitle: {
+    fontSize: "1.5rem",
+    marginBottom: "1rem",
+    color: "#b9bbbe",
     textAlign: "center" as const,
   },
   form: {
