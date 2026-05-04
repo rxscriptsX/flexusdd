@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
 
+interface Command {
+  name: string;
+  response: string;
+  category: string;
+}
+
 interface SettingsData {
   prefix: string;
   botNickname: string;
@@ -14,13 +20,16 @@ interface SettingsData {
   levelUpMessage: string;
   xpRate: number;
   muteRole: string;
-  customCommands: { name: string; response: string }[];
+  customCommands: Command[];
 }
 
 interface GuildSettingsProps {
   guildId: string;
   guildName: string;
 }
+
+const CATEGORIES = ["Diversión", "Moderación", "Utilidad", "Música", "Economía", "Niveles", "Sin categoría"];
+const MAX_COMMANDS = 200;
 
 export default function GuildSettings({ guildId, guildName }: GuildSettingsProps) {
   const [settings, setSettings] = useState<SettingsData>({
@@ -42,8 +51,11 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Para nuevo comando
   const [newCmdName, setNewCmdName] = useState("");
   const [newCmdResponse, setNewCmdResponse] = useState("");
+  const [newCmdCategory, setNewCmdCategory] = useState("Sin categoría");
 
   useEffect(() => {
     async function loadConfig() {
@@ -80,6 +92,10 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
   }, [guildId]);
 
   const handleSave = async () => {
+    if (settings.customCommands.length > MAX_COMMANDS) {
+      setSaveMessage({ type: "error", text: `❌ No puedes tener más de ${MAX_COMMANDS} comandos.` });
+      return;
+    }
     setSaving(true);
     setSaveMessage(null);
 
@@ -90,13 +106,12 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
         body: JSON.stringify({
           guildId,
           guildName,
-          guildIcon: null, // Podríamos obtener el icono desde la página, pero no lo tenemos aquí
+          guildIcon: null,
           ...settings,
         }),
       });
 
       const result = await res.json();
-
       if (res.ok) {
         setSaveMessage({ type: "success", text: "✅ Configuración guardada y aplicada correctamente." });
       } else {
@@ -111,14 +126,23 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
   };
 
   const addCommand = () => {
-    if (newCmdName.trim() && newCmdResponse.trim()) {
-      setSettings({
-        ...settings,
-        customCommands: [...settings.customCommands, { name: newCmdName.trim(), response: newCmdResponse.trim() }],
-      });
-      setNewCmdName("");
-      setNewCmdResponse("");
+    if (!newCmdName.trim() || !newCmdResponse.trim()) return;
+    if (settings.customCommands.length >= MAX_COMMANDS) {
+      setSaveMessage({ type: "error", text: `❌ Límite de ${MAX_COMMANDS} comandos alcanzado.` });
+      return;
     }
+    const newCommand: Command = {
+      name: newCmdName.trim(),
+      response: newCmdResponse.trim(),
+      category: newCmdCategory,
+    };
+    setSettings({
+      ...settings,
+      customCommands: [...settings.customCommands, newCommand],
+    });
+    setNewCmdName("");
+    setNewCmdResponse("");
+    setNewCmdCategory("Sin categoría");
   };
 
   const removeCommand = (index: number) => {
@@ -126,11 +150,18 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
     setSettings({ ...settings, customCommands: updated });
   };
 
+  // Agrupar comandos por categoría
+  const commandsByCategory: Record<string, Command[]> = {};
+  for (const cmd of settings.customCommands) {
+    if (!commandsByCategory[cmd.category]) commandsByCategory[cmd.category] = [];
+    commandsByCategory[cmd.category].push(cmd);
+  }
+
   if (loading) return <div style={{ textAlign: "center", color: "white" }}>Cargando configuración...</div>;
 
   return (
-    <div style={styles.container}>
-      {/* === GENERAL === */}
+    <div style={{ backgroundColor: "#2c2f33", borderRadius: "12px", padding: "2rem", maxWidth: "900px", margin: "0 auto", color: "white" }}>
+      {/* Secciones anteriores (General, Bienvenida, etc.) */}
       <Section title="⚙️ General">
         <Field label="Prefijo del bot">
           <input type="text" value={settings.prefix} onChange={(e) => setSettings({ ...settings, prefix: e.target.value })} style={inputStyle} />
@@ -141,7 +172,6 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
         </Field>
       </Section>
 
-      {/* === BIENVENIDA / DESPEDIDA === */}
       <Section title="👋 Bienvenida y Despedida">
         <Field label="Canal de bienvenida (ID)">
           <input type="text" value={settings.welcomeChannel} onChange={(e) => setSettings({ ...settings, welcomeChannel: e.target.value })} placeholder="ID del canal" style={inputStyle} />
@@ -158,21 +188,18 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
         </Field>
       </Section>
 
-      {/* === LOGS === */}
       <Section title="📋 Logs">
         <Field label="Canal de logs (ID)">
           <input type="text" value={settings.logChannel} onChange={(e) => setSettings({ ...settings, logChannel: e.target.value })} placeholder="ID del canal" style={inputStyle} />
         </Field>
       </Section>
 
-      {/* === ROLES === */}
       <Section title="🎭 Roles">
         <Field label="Auto-rol al entrar (ID del rol)">
           <input type="text" value={settings.autoRole} onChange={(e) => setSettings({ ...settings, autoRole: e.target.value })} placeholder="ID del rol" style={inputStyle} />
         </Field>
       </Section>
 
-      {/* === NIVELES Y XP === */}
       <Section title="⭐ Niveles y XP">
         <Field label="Habilitar sistema de niveles">
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -196,7 +223,6 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
         )}
       </Section>
 
-      {/* === MODERACIÓN === */}
       <Section title="🛡️ Moderación">
         <Field label="Rol de mute (ID)">
           <input type="text" value={settings.muteRole} onChange={(e) => setSettings({ ...settings, muteRole: e.target.value })} placeholder="ID del rol" style={inputStyle} />
@@ -204,29 +230,46 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
         </Field>
       </Section>
 
-      {/* === COMANDOS PERSONALIZADOS === */}
+      {/* === COMANDOS PERSONALIZADOS AVANZADOS === */}
       <Section title="🔧 Comandos personalizados">
         <p style={{ fontSize: "0.9rem", color: "#99aab5", marginBottom: "0.5rem" }}>
-          Añade comandos de texto que el bot responderá automáticamente.
+          Añade hasta {MAX_COMMANDS} comandos de texto. El bot los ejecutará automáticamente si está configurado para leerlos.
         </p>
-        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-          <input type="text" placeholder="Nombre (ej: reglas)" value={newCmdName} onChange={(e) => setNewCmdName(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-          <input type="text" placeholder="Respuesta" value={newCmdResponse} onChange={(e) => setNewCmdResponse(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+          <input type="text" placeholder="Nombre (ej: reglas)" value={newCmdName} onChange={(e) => setNewCmdName(e.target.value)} style={{ ...inputStyle, flex: "1 1 150px" }} />
+          <input type="text" placeholder="Respuesta" value={newCmdResponse} onChange={(e) => setNewCmdResponse(e.target.value)} style={{ ...inputStyle, flex: "2 1 250px" }} />
+          <select value={newCmdCategory} onChange={(e) => setNewCmdCategory(e.target.value)} style={{ ...inputStyle, flex: "1 1 120px" }}>
+            {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
           <button onClick={addCommand} style={styles.addBtn}>+</button>
         </div>
-        {settings.customCommands.length === 0 && (
-          <p style={{ color: "#72767d", fontStyle: "italic" }}>No hay comandos personalizados todavía.</p>
-        )}
-        {settings.customCommands.map((cmd, idx) => (
-          <div key={idx} style={styles.commandItem}>
-            <span style={{ fontWeight: "bold", marginRight: "0.5rem" }}>{cmd.name}</span>
-            <span style={{ color: "#b9bbbe" }}>{cmd.response}</span>
-            <button onClick={() => removeCommand(idx)} style={styles.removeBtn}>✕</button>
-          </div>
-        ))}
+
+        <div style={{ maxHeight: "400px", overflowY: "auto", border: "1px solid #40444b", borderRadius: "8px", padding: "0.5rem", backgroundColor: "#36393f" }}>
+          {Object.keys(commandsByCategory).length === 0 && !loading && (
+            <p style={{ color: "#72767d", fontStyle: "italic", textAlign: "center" }}>No hay comandos personalizados todavía.</p>
+          )}
+          {Object.entries(commandsByCategory).map(([category, cmds]) => (
+            <div key={category} style={{ marginBottom: "1rem" }}>
+              <h4 style={{ margin: "0 0 0.3rem", color: "#5865f2", fontSize: "0.95rem" }}>{category}</h4>
+              {cmds.map((cmd, idx) => {
+                const actualIndex = settings.customCommands.findIndex(c => c.name === cmd.name && c.response === cmd.response && c.category === cmd.category);
+                return (
+                  <div key={actualIndex} style={styles.commandItem}>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontWeight: "bold", marginRight: "0.5rem" }}>{cmd.name}</span>
+                      <span style={{ color: "#b9bbbe" }}>{cmd.response}</span>
+                    </div>
+                    <button onClick={() => removeCommand(actualIndex)} style={styles.removeBtn}>✕</button>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        <small style={{ color: "#99aab5" }}>Total: {settings.customCommands.length}/{MAX_COMMANDS}</small>
       </Section>
 
-      {/* === BOTÓN DE GUARDAR === */}
+      {/* Botón de guardar */}
       <div style={{ marginTop: "2rem", textAlign: "center" }}>
         <button
           onClick={handleSave}
@@ -263,14 +306,9 @@ export default function GuildSettings({ guildId, guildName }: GuildSettingsProps
   );
 }
 
-// Componentes auxiliares para secciones y campos
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{
-      marginBottom: "2rem",
-      borderBottom: "1px solid #40444b",
-      paddingBottom: "1.5rem",
-    }}>
+    <div style={{ marginBottom: "2rem", borderBottom: "1px solid #40444b", paddingBottom: "1.5rem" }}>
       <h3 style={{ fontSize: "1.3rem", marginBottom: "1rem", color: "#5865f2" }}>{title}</h3>
       {children}
     </div>
@@ -299,13 +337,6 @@ const inputStyle: React.CSSProperties = {
 };
 
 const styles = {
-  container: {
-    backgroundColor: "#2c2f33",
-    borderRadius: "12px",
-    padding: "2rem",
-    maxWidth: "750px",
-    margin: "0 auto",
-  },
   addBtn: {
     backgroundColor: "#3ba55c",
     color: "white",
@@ -321,17 +352,17 @@ const styles = {
     display: "flex",
     alignItems: "center",
     backgroundColor: "#40444b",
-    padding: "0.5rem",
-    borderRadius: "6px",
-    marginBottom: "0.4rem",
+    padding: "0.4rem 0.6rem",
+    borderRadius: "4px",
+    marginBottom: "0.3rem",
   },
   removeBtn: {
-    marginLeft: "auto",
     backgroundColor: "transparent",
     border: "none",
     color: "#ed4245",
     cursor: "pointer",
     fontWeight: "bold",
     fontSize: "1.1rem",
+    marginLeft: "0.5rem",
   },
 };
