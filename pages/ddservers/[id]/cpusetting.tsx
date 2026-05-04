@@ -45,18 +45,17 @@ export default function LogsServerPage() {
     }
   };
 
-  // Calculate used storage based on custom commands
+  // Obtener almacenamiento real desde la API guild-storage
   const fetchStorage = async () => {
     if (!guildId) return;
     try {
-      const res = await fetch(`/api/guild-config?guildId=${guildId}`);
+      const res = await fetch(`/api/guild-storage?guildId=${guildId}`);
       if (res.ok) {
-        const config = await res.json();
-        const commandsCount = config?.customCommands?.length || 0;
-        setUsedStorage(commandsCount * 15);
+        const data = await res.json();
+        setUsedStorage(data.used || 0);
       }
     } catch (err) {
-      console.error('Error al obtener configuración:', err);
+      console.error('Error al obtener almacenamiento:', err);
     }
   };
 
