@@ -18,12 +18,11 @@ export default function LogsServerPage() {
 
   // Storage
   const [usedStorage, setUsedStorage] = useState(0);
-  const [totalStorage] = useState(128); // GB
+  const totalStorage = 128; // GB
   const freeStorage = totalStorage - usedStorage;
 
   // Admin panel
   const [showAdmin, setShowAdmin] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
   const [extraGB, setExtraGB] = useState(0);
@@ -364,5 +363,3 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '0.5rem',
   },
 };
-
-export default LogsServerPage;
