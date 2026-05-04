@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { addRecentGuild } from './recent-guilds';
+import { addStorage } from '../../lib/storage';
 
 const configStore: Record<string, any> = {};
 
@@ -17,20 +18,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!guildId) return res.status(400).json({ error: 'guildId requerido' });
 
   // Verificar y consumir almacenamiento (15 GB por guardado)
-  const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
-  try {
-    const storageRes = await fetch(`${baseUrl}/api/guild-storage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ guildId, addGB: 15 }),
-    });
-    if (!storageRes.ok) {
-      const errData = await storageRes.json();
-      return res.status(403).json({ error: errData.error || 'Sin espacio suficiente' });
-    }
-  } catch (error) {
-    console.error('Error al verificar almacenamiento:', error);
-    return res.status(500).json({ error: 'Error interno al verificar almacenamiento' });
+  const storageResult = addStorage(guildId, 15);
+  if (!storageResult.success) {
+    return res.status(403).json({ error: storageResult.error || 'Sin espacio suficiente' });
   }
 
   // Guardar configuración
