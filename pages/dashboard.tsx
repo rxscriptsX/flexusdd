@@ -9,7 +9,6 @@ export default function Dashboard() {
   const router = useRouter();
 
   const [serverId, setServerId] = useState("");
-  const [serverName, setServerName] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const [searched, setSearched] = useState(false);
@@ -43,6 +42,7 @@ export default function Dashboard() {
 
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
+    if (!serverId.trim()) return;
     setLoading(true);
     setSearched(false);
     setResults([]);
@@ -50,23 +50,13 @@ export default function Dashboard() {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     try {
-      if (serverId.trim()) {
-        const res = await fetch(`/api/server-info?id=${encodeURIComponent(serverId.trim())}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al buscar el servidor");
-        if (data.exists) {
-          setResults([data]);
-        } else {
-          setResults([{ exists: false, id: serverId.trim(), name: "Servidor desconocido", icon: null }]);
-        }
-      } else if (serverName.trim()) {
-        const res = await fetch("/api/bot-guilds");
-        if (!res.ok) throw new Error("Error al obtener la lista del bot");
-        const botGuilds = await res.json();
-        const filtered = botGuilds.filter((g: any) =>
-          g.name.toLowerCase().includes(serverName.trim().toLowerCase())
-        );
-        setResults(filtered.map((g: any) => ({ ...g, exists: true })));
+      const res = await fetch(`/api/server-info?id=${encodeURIComponent(serverId.trim())}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al buscar el servidor");
+      if (data.exists) {
+        setResults([data]);
+      } else {
+        setResults([{ exists: false, id: serverId.trim(), name: "Servidor desconocido", icon: null }]);
       }
     } catch (error: any) {
       console.error("Error en la búsqueda:", error);
@@ -81,43 +71,34 @@ export default function Dashboard() {
     `https://discord.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "1459326358248231115"}&scope=bot&permissions=8&guild_id=${guildId}`;
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>🔍 Buscar Servidor</h1>
+    <div style={{ maxWidth: "800px", margin: "0 auto", color: "#ffffff" }}>
+      <h1 style={{ textAlign: "center", color: "#5865f2", marginBottom: "2rem" }}>🔍 Buscar Servidor</h1>
 
-      <form onSubmit={handleSearch} style={styles.form}>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>ID del servidor</label>
+      <form onSubmit={handleSearch} style={formStyle}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+          <label style={{ fontSize: "0.95rem", fontWeight: "bold", color: "#b9bbbe" }}>ID del servidor</label>
           <input
             type="text"
             value={serverId}
             onChange={(e) => setServerId(e.target.value)}
             placeholder="Ej: 123456789012345678"
-            style={styles.input}
+            style={inputStyle}
             disabled={loading}
           />
         </div>
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Nombre del servidor</label>
-          <input
-            type="text"
-            value={serverName}
-            onChange={(e) => setServerName(e.target.value)}
-            placeholder="Ej: Mi Servidor"
-            style={styles.input}
-            disabled={loading}
-          />
-        </div>
-        <button type="submit" style={styles.button} disabled={loading || (!serverId.trim() && !serverName.trim())}>
+        <button type="submit" style={buttonStyle} disabled={loading || !serverId.trim()}>
           {loading ? "⏳ Pensando..." : "Siguiente"}
         </button>
       </form>
 
       {searched && !loading && (
-        <div style={styles.results}>
+        <div style={{ marginTop: "1rem" }}>
           {results.length === 0 ? (
-            <p style={styles.noResults}>No se encontraron servidores con esos datos.</p>
+            <p style={{ textAlign: "center", color: "#99aab5", backgroundColor: "#2c2f33", padding: "1.5rem", borderRadius: "12px" }}>
+              No se encontraron servidores con ese ID.
+            </p>
           ) : (
-            <div style={styles.guildGrid}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", justifyContent: "center" }}>
               {results.map((guild: any) => (
                 <GuildCard key={guild.id} guild={guild} inviteUrl={inviteUrl} />
               ))}
@@ -126,15 +107,17 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Sección de servidores recientes */}
+      {/* Servidores recientes */}
       <div style={{ marginTop: "3rem" }}>
-        <h2 style={styles.recentTitle}>🕒 Servidores recientes</h2>
+        <h2 style={{ textAlign: "center", color: "#b9bbbe", marginBottom: "1rem" }}>🕒 Servidores recientes</h2>
         {loadingRecent ? (
-          <p style={{ color: "#99aab5", textAlign: "center" }}>Cargando...</p>
+          <p style={{ textAlign: "center", color: "#99aab5" }}>Cargando...</p>
         ) : recentGuilds.length === 0 ? (
-          <p style={styles.noResults}>No has configurado ningún servidor recientemente.</p>
+          <p style={{ textAlign: "center", color: "#99aab5", backgroundColor: "#2c2f33", padding: "1.5rem", borderRadius: "12px" }}>
+            No has configurado ningún servidor recientemente.
+          </p>
         ) : (
-          <div style={styles.guildGrid}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", justifyContent: "center" }}>
             {recentGuilds.map((guild: any) => (
               <GuildCard key={guild.id} guild={{ ...guild, exists: true }} inviteUrl={inviteUrl} />
             ))}
@@ -145,32 +128,31 @@ export default function Dashboard() {
   );
 }
 
-// Componente tarjeta reutilizable
 function GuildCard({ guild, inviteUrl }: { guild: any; inviteUrl: (id: string) => string }) {
   const iconUrl = guild.icon
     ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128`
     : null;
 
   return (
-    <div style={styles.card}>
+    <div style={cardStyle}>
       {!guild.exists ? (
-        <div style={{ color: "#ed2425", fontWeight: "bold", fontSize: "1.2rem", marginBottom: "1rem" }}>
+        <div style={{ color: "#ed4245", fontWeight: "bold", fontSize: "1.2rem", marginBottom: "1rem" }}>
           Servidor desconocido
         </div>
       ) : (
         <>
-          {iconUrl && <Image src={iconUrl} alt={guild.name} width={64} height={64} style={styles.icon} />}
-          <h3 style={styles.guildName}>{guild.name}</h3>
+          {iconUrl && <Image src={iconUrl} alt={guild.name} width={64} height={64} style={{ borderRadius: "50%", marginBottom: "0.5rem" }} />}
+          <h3 style={{ fontSize: "1rem", fontWeight: 600, margin: "0.3rem 0", wordBreak: "break-word" }}>{guild.name}</h3>
           <div style={{ margin: "0.5rem 0" }}>
-            <span style={styles.botActive}>Bot Active</span>
+            <span style={{ backgroundColor: "#faa61a", color: "#000", padding: "0.2rem 0.8rem", borderRadius: "12px", fontSize: "0.8rem", fontWeight: "bold" }}>Bot Active</span>
           </div>
-          <Link href={`/ddservers/${guild.id}`} style={styles.manageButton}>
+          <Link href={`/ddservers/${guild.id}`} style={{ marginTop: "0.5rem", backgroundColor: "#5865f2", color: "white", padding: "0.5rem 1rem", borderRadius: "8px", textDecoration: "none", fontWeight: "bold", display: "inline-block" }}>
             Manage Server
           </Link>
         </>
       )}
       {!guild.exists && (
-        <a href={inviteUrl(guild.id)} target="_blank" rel="noopener noreferrer" style={styles.addButton}>
+        <a href={inviteUrl(guild.id)} target="_blank" rel="noopener noreferrer" style={{ marginTop: "0.5rem", backgroundColor: "#3ba55c", color: "white", padding: "0.5rem 1rem", borderRadius: "8px", textDecoration: "none", fontWeight: "bold", display: "inline-block" }}>
           Add to Server
         </a>
       )}
@@ -182,129 +164,45 @@ export async function getServerSideProps() {
   return { props: {} };
 }
 
-const styles = {
-  container: {
-    maxWidth: "800px",
-    margin: "0 auto",
-    padding: "2rem 1rem",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    color: "#ffffff",
-    backgroundColor: "#23272a",
-    minHeight: "100vh",
-  },
-  title: {
-    fontSize: "2rem",
-    marginBottom: "2rem",
-    color: "#5865f2",
-    textAlign: "center" as const,
-  },
-  recentTitle: {
-    fontSize: "1.5rem",
-    marginBottom: "1rem",
-    color: "#b9bbbe",
-    textAlign: "center" as const,
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "1.2rem",
-    backgroundColor: "#2c2f33",
-    padding: "2rem",
-    borderRadius: "12px",
-    marginBottom: "2rem",
-  },
-  inputGroup: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "0.3rem",
-  },
-  label: {
-    fontSize: "0.95rem",
-    fontWeight: "bold",
-    color: "#b9bbbe",
-  },
-  input: {
-    padding: "0.7rem 1rem",
-    borderRadius: "8px",
-    border: "1px solid #40444b",
-    backgroundColor: "#40444b",
-    color: "white",
-    fontSize: "1rem",
-    outline: "none",
-  },
-  button: {
-    padding: "0.8rem",
-    backgroundColor: "#5865f2",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    fontSize: "1rem",
-  },
-  results: {
-    marginTop: "1rem",
-  },
-  noResults: {
-    textAlign: "center" as const,
-    color: "#99aab5",
-    backgroundColor: "#2c2f33",
-    padding: "1.5rem",
-    borderRadius: "12px",
-  },
-  guildGrid: {
-    display: "flex",
-    flexWrap: "wrap" as const,
-    gap: "1.5rem",
-    justifyContent: "center",
-  },
-  card: {
-    backgroundColor: "#2c2f33",
-    borderRadius: "16px",
-    padding: "1.5rem",
-    width: "220px",
-    textAlign: "center" as const,
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.4)",
-    display: "flex",
-    flexDirection: "column" as const,
-    alignItems: "center",
-  },
-  icon: {
-    borderRadius: "50%",
-    marginBottom: "0.5rem",
-  },
-  guildName: {
-    fontSize: "1rem",
-    fontWeight: 600,
-    margin: "0.3rem 0",
-    wordBreak: "break-word" as const,
-  },
-  botActive: {
-    backgroundColor: "#faa61a",
-    color: "#000",
-    padding: "0.2rem 0.8rem",
-    borderRadius: "12px",
-    fontSize: "0.8rem",
-    fontWeight: "bold",
-  },
-  manageButton: {
-    marginTop: "0.5rem",
-    backgroundColor: "#5865f2",
-    color: "white",
-    padding: "0.5rem 1rem",
-    borderRadius: "8px",
-    textDecoration: "none",
-    fontWeight: "bold",
-    display: "inline-block",
-  },
-  addButton: {
-    marginTop: "0.5rem",
-    backgroundColor: "#3ba55c",
-    color: "white",
-    padding: "0.5rem 1rem",
-    borderRadius: "8px",
-    textDecoration: "none",
-    fontWeight: "bold",
-    display: "inline-block",
-  },
+const formStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "1.2rem",
+  backgroundColor: "#2c2f33",
+  padding: "2rem",
+  borderRadius: "12px",
+  marginBottom: "2rem",
+};
+
+const inputStyle: React.CSSProperties = {
+  padding: "0.7rem 1rem",
+  borderRadius: "8px",
+  border: "1px solid #40444b",
+  backgroundColor: "#40444b",
+  color: "white",
+  fontSize: "1rem",
+  outline: "none",
+};
+
+const buttonStyle: React.CSSProperties = {
+  padding: "0.8rem",
+  backgroundColor: "#5865f2",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  fontSize: "1rem",
+};
+
+const cardStyle: React.CSSProperties = {
+  backgroundColor: "#2c2f33",
+  borderRadius: "16px",
+  padding: "1.5rem",
+  width: "220px",
+  textAlign: "center",
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.4)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
 };
