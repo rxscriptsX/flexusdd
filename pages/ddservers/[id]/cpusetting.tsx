@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
@@ -8,14 +8,32 @@ export default function LogsServerPage() {
   const router = useRouter();
   const { id: guildId } = router.query as { id: string };
 
+  // Logs
   const [logs, setLogs] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingLogs, setLoadingLogs] = useState(true);
 
+  // CPU simulation
+  const [cpu, setCpu] = useState(0);
+  const cpuRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Storage
+  const [usedStorage, setUsedStorage] = useState(0);
+  const [totalStorage] = useState(128); // GB
+  const freeStorage = totalStorage - usedStorage;
+
+  // Admin panel
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminError, setAdminError] = useState('');
+  const [selectedUser, setSelectedUser] = useState('');
+  const [extraGB, setExtraGB] = useState(0);
+  const [adminMsg, setAdminMsg] = useState('');
+
+  // Fetch logs
   const fetchLogs = async () => {
     if (!guildId) return;
-    setLoading(true);
+    setLoadingLogs(true);
     try {
-      // Llamada directa a la API que almacena los logs
       const res = await fetch(`/api/bot-logs?guildId=${guildId}`);
       if (res.ok) {
         const data = await res.json();
@@ -24,14 +42,38 @@ export default function LogsServerPage() {
     } catch (err) {
       console.error('Error cargando logs:', err);
     } finally {
-      setLoading(false);
+      setLoadingLogs(false);
+    }
+  };
+
+  // Calculate used storage based on custom commands
+  const fetchStorage = async () => {
+    if (!guildId) return;
+    try {
+      const res = await fetch(`/api/guild-config?guildId=${guildId}`);
+      if (res.ok) {
+        const config = await res.json();
+        const commandsCount = config?.customCommands?.length || 0;
+        setUsedStorage(commandsCount * 15);
+      }
+    } catch (err) {
+      console.error('Error al obtener configuración:', err);
     }
   };
 
   useEffect(() => {
     if (status === 'authenticated') {
       fetchLogs();
+      fetchStorage();
+      // CPU simulation
+      cpuRef.current = setInterval(() => {
+        const newCpu = Math.floor(Math.random() * 10001) / 100; // 0.01 to 100.00
+        setCpu(Number(newCpu.toFixed(2)));
+      }, 1260);
     }
+    return () => {
+      if (cpuRef.current) clearInterval(cpuRef.current);
+    };
   }, [guildId, status]);
 
   if (status === 'loading') return <p style={{ color: 'white' }}>Cargando sesión...</p>;
@@ -40,50 +82,173 @@ export default function LogsServerPage() {
     return null;
   }
 
+  // Admin modal
+  const handleAdminButton = () => {
+    const password = prompt('Introduce la contraseña de administrador:');
+    if (password === 'onlyalex') {
+      setShowAdmin(true);
+      setAdminError('');
+    } else if (password !== null) {
+      setAdminError('Contraseña incorrecta');
+    }
+  };
+
+  const handleAddStorage = async () => {
+    if (!selectedUser.trim()) {
+      setAdminMsg('Introduce un ID de usuario válido.');
+      return;
+    }
+    try {
+      const res = await fetch('/api/admin-storage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: selectedUser.trim(), extraGB: Number(extraGB) || 0 }),
+      });
+      if (res.ok) {
+        setAdminMsg(`Añadidos ${extraGB} GB al usuario ${selectedUser}.`);
+        setSelectedUser('');
+        setExtraGB(0);
+      } else {
+        const err = await res.json();
+        setAdminMsg(`Error: ${err.error || 'No se pudo guardar'}`);
+      }
+    } catch (err) {
+      setAdminMsg('Error de conexión.');
+    }
+  };
+
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', color: 'white' }}>
+    <div style={{ maxWidth: '900px', margin: '0 auto', color: 'white', position: 'relative', minHeight: '100vh' }}>
+      {/* Cabecera */}
       <div style={styles.header}>
         <h1 style={{ color: '#5865f2', margin: 0 }}>📋 Logs del Bot en este servidor</h1>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <Link href={`/ddservers/${guildId}`} style={styles.backLink}>
             ← Volver a configuración
           </Link>
-          <button onClick={fetchLogs} style={styles.refreshButton}>
+          <button onClick={() => { fetchLogs(); fetchStorage(); }} style={styles.refreshButton}>
             🔄 Actualizar
           </button>
         </div>
       </div>
 
-      {loading ? (
-        <p style={{ textAlign: 'center', color: '#99aab5' }}>Cargando logs...</p>
-      ) : (
-        <div style={styles.logContainer}>
-          <div style={styles.logBox}>
-            {logs.length === 0 ? (
-              <p style={{ color: '#72767d', fontStyle: 'italic' }}>
-                No hay logs recientes. Ejecuta un comando slash y vuelve a actualizar.
-              </p>
-            ) : (
-              logs.map((log, i) => (
-                <div key={i} style={styles.logEntry}>
-                  {log}
-                </div>
-              ))
-            )}
+      {/* Ventanillas simuladas */}
+      <div style={styles.panelsGrid}>
+        <div style={styles.panel}>
+          <div style={styles.panelIcon}>⚙️</div>
+          <div style={styles.panelTitle}>CPU</div>
+          <div style={styles.panelValue}>{cpu}%</div>
+        </div>
+        <div style={styles.panel}>
+          <div style={styles.panelIcon}>💾</div>
+          <div style={styles.panelTitle}>Almacenamiento</div>
+          <div style={styles.panelValue}>
+            {usedStorage} GB / {totalStorage} GB
+          </div>
+          <div style={styles.panelSub}>
+            Libre: {freeStorage} GB
+          </div>
+        </div>
+      </div>
+
+      {/* Logs */}
+      <div style={{ marginTop: '2rem' }}>
+        {loadingLogs ? (
+          <p style={{ textAlign: 'center', color: '#99aab5' }}>Cargando logs...</p>
+        ) : (
+          <div style={styles.logContainer}>
+            <div style={styles.logBox}>
+              {logs.length === 0 ? (
+                <p style={{ color: '#72767d', fontStyle: 'italic' }}>
+                  No hay logs recientes. Ejecuta un comando slash y vuelve a actualizar.
+                </p>
+              ) : (
+                logs.map((log, i) => (
+                  <div key={i} style={styles.logEntry}>
+                    {log}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Botón "&" escondido */}
+      <button
+        onClick={handleAdminButton}
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          background: 'rgba(0,0,0,0.4)',
+          border: '1px solid #5865f2',
+          borderRadius: '50%',
+          width: '40px',
+          height: '40px',
+          color: '#5865f2',
+          fontSize: '1.5rem',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}
+        title="Administración"
+      >
+        &amp;
+      </button>
+
+      {/* Panel de administración (superpuesto) */}
+      {showAdmin && (
+        <div style={styles.adminOverlay}>
+          <div style={styles.adminPanel}>
+            <h2 style={{ color: '#5865f2', marginTop: 0 }}>Panel de Administración</h2>
+            <p style={{ color: '#b9bbbe' }}>Añadir almacenamiento a un usuario</p>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={styles.label}>ID de usuario de Discord</label>
+              <input
+                type="text"
+                value={selectedUser}
+                onChange={(e) => setSelectedUser(e.target.value)}
+                placeholder="123456789012345678"
+                style={styles.input}
+              />
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={styles.label}>GB a añadir</label>
+              <input
+                type="number"
+                value={extraGB}
+                onChange={(e) => setExtraGB(Number(e.target.value))}
+                min="0"
+                step="1"
+                style={styles.input}
+              />
+            </div>
+            <button onClick={handleAddStorage} style={styles.saveButton}>
+              💾 Guardar
+            </button>
+            {adminMsg && <p style={{ marginTop: '0.5rem', color: adminMsg.includes('Error') ? '#ed4245' : '#3ba55c' }}>{adminMsg}</p>}
+            <button onClick={() => setShowAdmin(false)} style={{ ...styles.saveButton, backgroundColor: '#555', marginTop: '0.5rem' }}>
+              Cerrar
+            </button>
           </div>
         </div>
       )}
+      {adminError && <p style={{ color: '#ed4245', textAlign: 'center' }}>{adminError}</p>}
     </div>
   );
 }
 
-const styles = {
+// Estilos
+const styles: Record<string, React.CSSProperties> = {
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '1.5rem',
-    flexWrap: 'wrap' as const,
+    flexWrap: 'wrap',
     gap: '1rem',
   },
   backLink: {
@@ -99,6 +264,37 @@ const styles = {
     padding: '0.3rem 0.8rem',
     cursor: 'pointer',
   },
+  panelsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: '1rem',
+    marginBottom: '2rem',
+  },
+  panel: {
+    backgroundColor: '#2c2f33',
+    borderRadius: '12px',
+    padding: '1.5rem',
+    textAlign: 'center',
+    boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+  },
+  panelIcon: {
+    fontSize: '2rem',
+    marginBottom: '0.3rem',
+  },
+  panelTitle: {
+    fontSize: '0.9rem',
+    color: '#99aab5',
+    marginBottom: '0.2rem',
+  },
+  panelValue: {
+    fontSize: '1.8rem',
+    fontWeight: 'bold',
+  },
+  panelSub: {
+    fontSize: '0.8rem',
+    color: '#99aab5',
+    marginTop: '0.3rem',
+  },
   logContainer: {
     backgroundColor: '#2c2f33',
     borderRadius: '12px',
@@ -109,7 +305,7 @@ const styles = {
     borderRadius: '8px',
     padding: '1rem',
     maxHeight: '500px',
-    overflowY: 'auto' as const,
+    overflowY: 'auto',
     fontFamily: 'monospace',
     fontSize: '0.9rem',
     lineHeight: '1.6',
@@ -118,4 +314,55 @@ const styles = {
     padding: '0.15rem 0',
     color: '#b9bbbe',
   },
+  adminOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2000,
+  },
+  adminPanel: {
+    backgroundColor: '#2c2f33',
+    borderRadius: '12px',
+    padding: '2rem',
+    width: '90%',
+    maxWidth: '400px',
+    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+  },
+  label: {
+    display: 'block',
+    marginBottom: '0.3rem',
+    fontWeight: 'bold',
+    color: '#b9bbbe',
+  },
+  input: {
+    width: '100%',
+    padding: '0.6rem',
+    borderRadius: '6px',
+    border: '1px solid #40444b',
+    backgroundColor: '#40444b',
+    color: 'white',
+    fontSize: '0.95rem',
+    outline: 'none',
+    boxSizing: 'border-box',
+  },
+  saveButton: {
+    backgroundColor: '#5865f2',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '0.8rem',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    width: '100%',
+    marginBottom: '0.5rem',
+  },
 };
+
+export default LogsServerPage;
