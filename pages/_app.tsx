@@ -1,10 +1,16 @@
 import { SessionProvider, useSession, signOut } from "next-auth/react";
 import type { AppProps } from "next/app";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { ReactNode } from "react";
 
 function Layout({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
+  const router = useRouter();
+
+  const goBack = () => {
+    router.back();
+  };
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", backgroundColor: "#23272a", color: "white" }}>
@@ -16,9 +22,22 @@ function Layout({ children }: { children: ReactNode }) {
         backgroundColor: "#2c2f33",
         borderBottom: "1px solid #40444b",
       }}>
-        <Link href="/dashboard" style={{ color: "#5865f2", fontWeight: "bold", fontSize: "1.2rem", textDecoration: "none" }}>
-          FLEXUS Dashboard
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <button onClick={goBack} style={{
+            background: "none",
+            border: "1px solid #99aab5",
+            color: "#99aab5",
+            padding: "0.3rem 0.8rem",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "0.9rem",
+          }}>
+            ← Atrás
+          </button>
+          <Link href="/dashboard" style={{ color: "#5865f2", fontWeight: "bold", fontSize: "1.2rem", textDecoration: "none" }}>
+            FLEXUS Dashboard
+          </Link>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           {session && (
             <>
