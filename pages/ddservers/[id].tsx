@@ -24,6 +24,10 @@ export default function GuildDashboard({ guild }: Props) {
   }
   if (!guild) return <div style={{ color: "white" }}>No se pudo cargar el servidor.</div>;
 
+  const handleConfigSaved = () => {
+    router.push(`/ddservers/${guild.id}/cpusetting`);
+  };
+
   return (
     <div style={{ maxWidth: "1000px", margin: "0 auto", color: "white" }}>
       <h1 style={{ color: "#5865f2", textAlign: "center", marginBottom: "0.5rem" }}>
@@ -42,7 +46,7 @@ export default function GuildDashboard({ guild }: Props) {
           🖥️ Monitoreo del Bot
         </Link>
       </div>
-      <GuildSettings guildId={guild.id} guildName={guild.name} />
+      <GuildSettings guildId={guild.id} guildName={guild.name} onConfigSaved={handleConfigSaved} />
     </div>
   );
 }
