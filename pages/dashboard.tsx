@@ -15,6 +15,12 @@ export default function Dashboard() {
   const [recentGuilds, setRecentGuilds] = useState<any[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
 
+  // Captcha states
+  const [captchaRequired, setCaptchaRequired] = useState(false);
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+  const [captchaQuestion, setCaptchaQuestion] = useState({ num1: 0, num2: 0, result: 0 });
+  const [captchaError, setCaptchaError] = useState(false);
+
   useEffect(() => {
     async function fetchRecent() {
       try {
@@ -34,6 +40,14 @@ export default function Dashboard() {
     }
   }, [status]);
 
+  const generateCaptcha = () => {
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = Math.floor(Math.random() * 10) + 1;
+    setCaptchaQuestion({ num1, num2, result: num1 + num2 });
+    setCaptchaAnswer("");
+    setCaptchaError(false);
+  };
+
   if (status === "unauthenticated") {
     router.push("/login");
     return null;
@@ -43,6 +57,26 @@ export default function Dashboard() {
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
     if (!serverId.trim()) return;
+
+    // Si no se ha verificado, mostrar captcha
+    if (!captchaRequired) {
+      setCaptchaRequired(true);
+      generateCaptcha();
+      return;
+    }
+
+    // Verificar captcha
+    if (parseInt(captchaAnswer) !== captchaQuestion.result) {
+      setCaptchaError(true);
+      return;
+    }
+
+    // Limpiar estados de captcha
+    setCaptchaRequired(false);
+    setCaptchaError(false);
+    setCaptchaAnswer("");
+
+    // Proceder con búsqueda
     setLoading(true);
     setSearched(false);
     setResults([]);
@@ -76,18 +110,38 @@ export default function Dashboard() {
 
       <form onSubmit={handleSearch} style={formStyle}>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-          <label style={{ fontSize: "0.95rem", fontWeight: "bold", color: "#b9bbbe" }}>ID del servidor</label>
+          <label style={{ fontSize: "0.95rem", fontWeight: "bold", color: "#b9bbbe", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            ID del servidor
+            <span title="Para obtener el ID del servidor, activa el Modo Desarrollador en Discord (Ajustes > Avanzado), luego clic derecho en el servidor > Copiar ID." style={{ cursor: "pointer", fontSize: "0.8rem", color: "#5865f2" }}>ⓘ</span>
+          </label>
           <input
             type="text"
             value={serverId}
             onChange={(e) => setServerId(e.target.value)}
             placeholder="Ej: 123456789012345678"
             style={inputStyle}
-            disabled={loading}
+            disabled={loading || captchaRequired}
           />
         </div>
+
+        {captchaRequired && (
+          <div style={{ backgroundColor: "#36393f", padding: "1rem", borderRadius: "8px", border: "1px solid #5865f2" }}>
+            <p style={{ margin: "0 0 0.5rem", fontWeight: "bold" }}>🤖 Verificación: ¿Eres humano?</p>
+            <p style={{ margin: "0 0 0.5rem" }}>Resuelve: {captchaQuestion.num1} + {captchaQuestion.num2} = ?</p>
+            <input
+              type="number"
+              value={captchaAnswer}
+              onChange={(e) => { setCaptchaAnswer(e.target.value); setCaptchaError(false); }}
+              style={inputStyle}
+              placeholder="Resultado"
+              autoFocus
+            />
+            {captchaError && <p style={{ color: "#ed4245", margin: "0.3rem 0 0", fontSize: "0.85rem" }}>Respuesta incorrecta. Intenta de nuevo.</p>}
+          </div>
+        )}
+
         <button type="submit" style={buttonStyle} disabled={loading || !serverId.trim()}>
-          {loading ? "⏳ Pensando..." : "Siguiente"}
+          {loading ? "⏳ Pensando..." : captchaRequired ? "Verificar y buscar" : "Siguiente"}
         </button>
       </form>
 
@@ -182,6 +236,8 @@ const inputStyle: React.CSSProperties = {
   color: "white",
   fontSize: "1rem",
   outline: "none",
+  width: "100%",
+  boxSizing: "border-box",
 };
 
 const buttonStyle: React.CSSProperties = {
