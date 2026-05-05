@@ -1,26 +1,51 @@
 import { kv } from '@vercel/kv';
 
-const MAX_GB = 128;
+const DEFAULT_MAX_GB = 128;
 
-function storageKey(guildId: string): string {
-  return `guild:${guildId}:storage`;
+// Claves en KV
+function maxKey(userId: string): string {
+  return `user:${userId}:max`;
+}
+function usedKey(userId: string): string {
+  return `user:${userId}:used`;
 }
 
-export async function getStorage(guildId: string): Promise<number> {
-  const value = await kv.get<number>(storageKey(guildId));
-  return value || 0;
+// Obtener el límite máximo del usuario
+async function getMax(userId: string): Promise<number> {
+  const value = await kv.get<number>(maxKey(userId));
+  return value ?? DEFAULT_MAX_GB;
 }
 
-export async function addStorage(guildId: string, addGB: number): Promise<{ success: boolean; error?: string }> {
-  const current = await getStorage(guildId);
-  if (current + addGB > MAX_GB) {
-    return { success: false, error: 'Almacenamiento insuficiente. No puedes gastar más GB.' };
+// Establecer un nuevo límite máximo (uso administrativo)
+async function setMax(userId: string, newMax: number): Promise<void> {
+  await kv.set(maxKey(userId), newMax);
+}
+
+// Añadir GB al límite máximo (el administrador sube la cuota)
+export async function addMax(userId: string, addGB: number): Promise<void> {
+  const current = await getMax(userId);
+  await setMax(userId, current + addGB);
+}
+
+// Obtener el espacio ya consumido por el usuario
+async function getUsed(userId: string): Promise<number> {
+  const value = await kv.get<number>(usedKey(userId));
+  return value ?? 0;
+}
+
+// Consumir almacenamiento (al guardar configuración)
+export async function consumeStorage(userId: string, usageGB: number): Promise<{ success: boolean; error?: string }> {
+  const max = await getMax(userId);
+  const used = await getUsed(userId);
+  if (used + usageGB > max) {
+    return { success: false, error: 'Has agotado tu almacenamiento. Pide al administrador que te amplíe el límite.' };
   }
-  await kv.set(storageKey(guildId), current + addGB);
+  await kv.set(usedKey(userId), used + usageGB);
   return { success: true };
 }
 
-export async function getStorageInfo(guildId: string) {
-  const used = await getStorage(guildId);
-  return { used, max: MAX_GB, free: MAX_GB - used };
+// Obtener info completa (usado, máximo, libre)
+export async function getUserStorageInfo(userId: string) {
+  const [max, used] = await Promise.all([getMax(userId), getUsed(userId)]);
+  return { used, max, free: max - used };
 }
