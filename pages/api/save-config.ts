@@ -17,13 +17,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!guildId) return res.status(400).json({ error: 'guildId requerido' });
 
-  // Verificar y consumir almacenamiento (15 GB por guardado)
-  const storageResult = addStorage(guildId, 15);
+  // Consumir 15 GB en Redis (persistente)
+  const storageResult = await addStorage(guildId, 15);
   if (!storageResult.success) {
     return res.status(403).json({ error: storageResult.error || 'Sin espacio suficiente' });
   }
 
-  // Guardar configuración
+  // Guardar configuración (en memoria; puedes migrar a BD más adelante)
   configStore[guildId] = { ...configStore[guildId], ...settings, botNickname };
 
   // Registrar como reciente
