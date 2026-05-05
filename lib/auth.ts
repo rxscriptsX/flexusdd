@@ -11,11 +11,13 @@ export const authOptions: AuthOptions = {
   ],
   callbacks: {
     async jwt({ token, account }) {
+      // Nada más hacer login, guardamos el token de acceso
       if (account) {
         token.accessToken = account.access_token;
         token.scope = account.scope;
       }
 
+      // Si hay token de acceso, pedimos los servidores del usuario a Discord
       if (token.accessToken) {
         try {
           const response = await fetch("https://discord.com/api/users/@me/guilds", {
@@ -37,6 +39,10 @@ export const authOptions: AuthOptions = {
     async session({ session, token }) {
       session.accessToken = token.accessToken as string;
       session.userGuilds = token.guilds as any[] | undefined;
+      // ✅ Añadir esta línea para exponer el ID de Discord en la sesión
+      if (session.user) {
+        session.user.id = token.sub as string;
+      }
       return session;
     },
   },
