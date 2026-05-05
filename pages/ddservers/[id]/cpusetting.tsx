@@ -16,10 +16,10 @@ export default function LogsServerPage() {
   const [cpu, setCpu] = useState(0);
   const cpuRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Storage
+  // Storage (usuario actual)
   const [usedStorage, setUsedStorage] = useState(0);
-  const totalStorage = 128; // GB
-  const freeStorage = totalStorage - usedStorage;
+  const [maxStorage, setMaxStorage] = useState(128);
+  const freeStorage = maxStorage - usedStorage;
 
   // Admin panel
   const [showAdmin, setShowAdmin] = useState(false);
@@ -45,17 +45,18 @@ export default function LogsServerPage() {
     }
   };
 
-  // Obtener almacenamiento real desde la API guild-storage
+  // Obtener almacenamiento del usuario conectado
   const fetchStorage = async () => {
-    if (!guildId) return;
+    if (!session?.user?.id) return;
     try {
-      const res = await fetch(`/api/guild-storage?guildId=${guildId}`);
+      const res = await fetch(`/api/guild-storage?userId=${session.user.id}`);
       if (res.ok) {
         const data = await res.json();
         setUsedStorage(data.used || 0);
+        setMaxStorage(data.max || 128);
       }
     } catch (err) {
-      console.error('Error al obtener almacenamiento:', err);
+      console.error('Error al obtener almacenamiento del usuario:', err);
     }
   };
 
@@ -63,16 +64,15 @@ export default function LogsServerPage() {
     if (status === 'authenticated') {
       fetchLogs();
       fetchStorage();
-      // CPU simulation
       cpuRef.current = setInterval(() => {
-        const newCpu = Math.floor(Math.random() * 10001) / 100; // 0.01 to 100.00
+        const newCpu = Math.floor(Math.random() * 10001) / 100; // 0.01 a 100.00
         setCpu(Number(newCpu.toFixed(2)));
       }, 1260);
     }
     return () => {
       if (cpuRef.current) clearInterval(cpuRef.current);
     };
-  }, [guildId, status]);
+  }, [guildId, status, session]);
 
   if (status === 'loading') return <p style={{ color: 'white' }}>Cargando sesión...</p>;
   if (!session) {
@@ -97,15 +97,18 @@ export default function LogsServerPage() {
       return;
     }
     try {
-      const res = await fetch('/api/admin-storage', {
+      const res = await fetch('/api/guild-storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: selectedUser.trim(), extraGB: Number(extraGB) || 0 }),
+        body: JSON.stringify({ userId: selectedUser.trim(), addGB: Number(extraGB) || 0 }),
       });
       if (res.ok) {
-        setAdminMsg(`Añadidos ${extraGB} GB al usuario ${selectedUser}.`);
+        const data = await res.json();
+        setAdminMsg(`Añadidos ${extraGB} GB al usuario ${selectedUser}. Ahora su límite es ${data.max} GB.`);
         setSelectedUser('');
         setExtraGB(0);
+        // Refrescar almacenamiento del usuario actual por si es el mismo
+        fetchStorage();
       } else {
         const err = await res.json();
         setAdminMsg(`Error: ${err.error || 'No se pudo guardar'}`);
@@ -141,7 +144,7 @@ export default function LogsServerPage() {
           <div style={styles.panelIcon}>💾</div>
           <div style={styles.panelTitle}>Almacenamiento</div>
           <div style={styles.panelValue}>
-            {usedStorage} GB / {totalStorage} GB
+            {usedStorage} GB / {maxStorage} GB
           </div>
           <div style={styles.panelSub}>
             Libre: {freeStorage} GB
@@ -162,9 +165,7 @@ export default function LogsServerPage() {
                 </p>
               ) : (
                 logs.map((log, i) => (
-                  <div key={i} style={styles.logEntry}>
-                    {log}
-                  </div>
+                  <div key={i} style={styles.logEntry}>{log}</div>
                 ))
               )}
             </div>
@@ -239,7 +240,7 @@ export default function LogsServerPage() {
   );
 }
 
-// Estilos
+// Estilos (idénticos a los anteriores)
 const styles: Record<string, React.CSSProperties> = {
   header: {
     display: 'flex',
