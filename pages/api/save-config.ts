@@ -1,11 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { addRecentGuild } from './recent-guilds';
-import { addStorage } from '../../lib/storage';
+import { consumeStorage } from '../../lib/storage';
+import { getToken } from 'next-auth/jwt';
 
 const configStore: Record<string, any> = {};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+
+  // Obtener el ID del usuario desde el token de sesión
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || !token.sub) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+  const userId = token.sub; // ID de Discord
 
   const {
     guildId,
@@ -17,13 +25,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!guildId) return res.status(400).json({ error: 'guildId requerido' });
 
-  // Consumir 15 GB en Redis (persistente)
-  const storageResult = await addStorage(guildId, 15);
+  // Consumir 15 GB del usuario actual
+  const storageResult = await consumeStorage(userId, 15);
   if (!storageResult.success) {
-    return res.status(403).json({ error: storageResult.error || 'Sin espacio suficiente' });
+    return res.status(403).json({ error: storageResult.error });
   }
 
-  // Guardar configuración (en memoria; puedes migrar a BD más adelante)
+  // Guardar configuración (en memoria, puedes migrar a BD más adelante)
   configStore[guildId] = { ...configStore[guildId], ...settings, botNickname };
 
   // Registrar como reciente
