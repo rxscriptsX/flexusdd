@@ -1,10 +1,4 @@
-import { Redis } from '@upstash/redis';
-
-// Conexión segura usando variables de entorno
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
-});
+import { kv } from '@vercel/kv';
 
 const MAX_GB = 128;
 
@@ -13,7 +7,7 @@ function storageKey(guildId: string): string {
 }
 
 export async function getStorage(guildId: string): Promise<number> {
-  const value = await redis.get<number>(storageKey(guildId));
+  const value = await kv.get<number>(storageKey(guildId));
   return value || 0;
 }
 
@@ -22,7 +16,7 @@ export async function addStorage(guildId: string, addGB: number): Promise<{ succ
   if (current + addGB > MAX_GB) {
     return { success: false, error: 'Almacenamiento insuficiente. No puedes gastar más GB.' };
   }
-  await redis.set(storageKey(guildId), current + addGB);
+  await kv.set(storageKey(guildId), current + addGB);
   return { success: true };
 }
 
