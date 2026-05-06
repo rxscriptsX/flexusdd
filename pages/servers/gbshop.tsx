@@ -1,46 +1,23 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
 
 const products = [
-  { gb: 50, price: '1,99€' },
-  { gb: 128, price: '4,99€' },
-  { gb: 256, price: '9,99€' },
-  { gb: 512, price: '29,99€' },
-  { gb: 1024, price: '50€' },
+  { gb: 50,  price: '1,99€',  paypal: 'https://www.paypal.com/ncp/payment/YK9FHNXP8X2FJ' },
+  { gb: 128, price: '4,99€',  paypal: 'https://www.paypal.com/ncp/payment/M5F7GYP2TZSYC' },
+  { gb: 256, price: '9,99€',  paypal: 'https://www.paypal.com/ncp/payment/PDQZF2MY5Q38J' },
+  { gb: 512, price: '29,99€', paypal: 'https://www.paypal.com/ncp/payment/W5HXMBWXRYQSE' },
+  { gb: 1024, price: '50€',   paypal: 'https://www.paypal.com/ncp/payment/GDHLRUKZMJA4C' },
 ];
 
 export default function GBShop() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [loading, setLoading] = useState<string | null>(null);
 
-  if (status === 'loading') return <p>Cargando...</p>;
+  if (status === 'loading') return <p style={{ color: 'white', textAlign: 'center' }}>Cargando sesión...</p>;
   if (!session) {
     router.push('/login');
     return null;
   }
-
-  const handleBuy = async (gb: number) => {
-    setLoading(`buying-${gb}`);
-    try {
-      const res = await fetch('/api/generate-gb-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gb }),
-      });
-      const data = await res.json();
-      if (data.token) {
-        router.push(`/servers/shop/${data.token}`);
-      } else {
-        alert('Error generando enlace');
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(null);
-    }
-  };
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', color: 'white' }}>
@@ -53,16 +30,14 @@ export default function GBShop() {
           <div key={product.gb} style={styles.card}>
             <h2 style={{ fontSize: '2rem', margin: '0.5rem 0' }}>{product.gb} GB</h2>
             <p style={{ fontSize: '1.5rem', color: '#5865f2', fontWeight: 'bold' }}>{product.price}</p>
-            <button
-              onClick={() => handleBuy(product.gb)}
-              disabled={loading === `buying-${product.gb}`}
-              style={{
-                ...styles.buyButton,
-                opacity: loading === `buying-${product.gb}` ? 0.7 : 1,
-              }}
+            <a
+              href={product.paypal}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ ...styles.buyButton, textDecoration: 'none', display: 'inline-block' }}
             >
-              {loading === `buying-${product.gb}` ? 'Generando...' : 'Comprar'}
-            </button>
+              Comprar
+            </a>
           </div>
         ))}
       </div>
