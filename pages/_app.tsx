@@ -16,9 +16,14 @@ function Layout({ children }: { children: ReactNode }) {
         backgroundColor: "#2c2f33",
         borderBottom: "1px solid #40444b",
       }}>
-        <Link href="/dashboard" style={{ color: "#5865f2", fontWeight: "bold", fontSize: "1.2rem", textDecoration: "none" }}>
-          FLEXUS Dashboard
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+          <Link href="/dashboard" style={{ color: "#5865f2", fontWeight: "bold", fontSize: "1.2rem", textDecoration: "none" }}>
+            FLEXUS Dashboard
+          </Link>
+          <Link href="/servers/gbshop" style={{ color: "#faa61a", fontWeight: "bold", textDecoration: "none", fontSize: "0.95rem" }}>
+            GB Shop
+          </Link>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
           {session && (
             <>
