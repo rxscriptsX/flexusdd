@@ -26,6 +26,9 @@ function Layout({ children }: { children: ReactNode }) {
           <Link href="/perm/servers/users" style={{ color: "#3ba55c", fontWeight: "bold", textDecoration: "none", fontSize: "0.95rem" }}>
             Servers
           </Link>
+          <Link href="/server/dashboard" style={{ color: "#ff6b6b", fontWeight: "bold", textDecoration: "none", fontSize: "0.95rem" }}>
+            Servers Dashboard
+          </Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
           {session && (
