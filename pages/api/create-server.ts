@@ -22,19 +22,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const existing = await kv.get(cooldownKey);
   if (existing) return res.status(429).json({ error: 'Debes esperar 32 horas para crear otro servidor.' });
 
-  // Verificar si el nombre ya existe globalmente
+  // Verificar si el nombre ya existe
   const globalKey = `server:${name}:owner`;
   const owner = await kv.get(globalKey);
   if (owner) return res.status(409).json({ error: 'El nombre del servidor ya está en uso.' });
 
-  // Consumir 49 GB
-  const storage = await consumeStorage(userId, 49);
-  if (!storage.success) return res.status(403).json({ error: storage.error || 'Sin espacio suficiente.' });
+  // Obtener contador de servidores y calcular coste
+  const countKey = `user:${userId}:serverCount`;
+  const count = (await kv.get<number>(countKey)) || 0;
+  const cost = 49 * Math.pow(2, count);
+
+  // Consumir almacenamiento (cost GB)
+  const storage = await consumeStorage(userId, cost);
+  if (!storage.success) return res.status(403).json({ error: storage.error || `Sin espacio suficiente. Necesitas ${cost} GB.` });
+
+  // Incrementar contador
+  await kv.set(countKey, count + 1);
 
   // Generar contraseña de 72 dígitos
   const password = Array.from({ length: 72 }, () => Math.floor(Math.random() * 10)).join('');
 
-  // Guardar servidor en KV
+  // Guardar servidor
   await kv.set(globalKey, userId);
   await kv.set(`server:${name}:data`, {
     owner: userId,
@@ -46,5 +54,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Establecer cooldown de 32 horas
   await kv.set(cooldownKey, '1', { ex: COOLDOWN_SECONDS });
 
-  return res.status(200).json({ success: true, password });
+  return res.status(200).json({ success: true, password, cost });
 }
