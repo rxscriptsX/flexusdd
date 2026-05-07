@@ -11,6 +11,10 @@ export default function CreateServerPage() {
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [cooldown, setCooldown] = useState(false);
 
+  // Estado para el login separado
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginServerName, setLoginServerName] = useState('');
+
   useEffect(() => {
     if (session?.user?.id) {
       fetch(`/api/server-cooldown?userId=${session.user.id}`)
@@ -44,7 +48,8 @@ export default function CreateServerPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Servidor creado. Redirigiendo...' });
+        setMessage({ type: 'success', text: 'Servidor creado. Redirigiendo al panel...' });
+        // Redirigir directamente al servidor (se saltará el login por ser dueño)
         setTimeout(() => router.push(`/server/${encodeURIComponent(name.trim())}`), 1000);
       } else {
         setMessage({ type: 'error', text: data.error || 'Error al crear servidor' });
@@ -57,9 +62,15 @@ export default function CreateServerPage() {
     }
   };
 
+  const handleGoToLogin = () => {
+    if (loginServerName.trim().length === 0) return;
+    router.push(`/server/${encodeURIComponent(loginServerName.trim())}`);
+  };
+
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', color: 'white' }}>
       <h1 style={{ color: '#5865f2', textAlign: 'center' }}>Crear Servidor</h1>
+
       {message && (
         <div style={{
           backgroundColor: message.type === 'error' ? 'rgba(237,66,69,0.2)' : 'rgba(59,165,92,0.2)',
@@ -70,13 +81,17 @@ export default function CreateServerPage() {
           {message.text}
         </div>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <Field label="Nombre del servidor (máx. 10 caracteres)">
+
+      {/* Formulario de creación */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+        <div>
+          <label style={{ fontWeight: 'bold', color: '#b9bbbe' }}>Nombre del servidor (máx. 10 caracteres)</label>
           <input type="text" maxLength={10} value={name} onChange={e => setName(e.target.value)} style={inputStyle} />
-        </Field>
-        <Field label="ID del servidor de Discord">
+        </div>
+        <div>
+          <label style={{ fontWeight: 'bold', color: '#b9bbbe' }}>ID del servidor de Discord</label>
           <input type="text" value={guildId} onChange={e => setGuildId(e.target.value)} style={inputStyle} />
-        </Field>
+        </div>
         <button onClick={handleCreate} disabled={loading || cooldown}
           style={{
             backgroundColor: loading || cooldown ? '#555' : '#3ba55c',
@@ -87,20 +102,42 @@ export default function CreateServerPage() {
           {loading ? 'Creando...' : cooldown ? 'Espera 32 horas' : 'Crear Servidor (49 GB)'}
         </button>
       </div>
-    </div>
-  );
-}
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-      <label style={{ fontWeight: 'bold', color: '#b9bbbe' }}>{label}</label>
-      {children}
+      {/* Botón de Login a servidor existente */}
+      <div style={{ borderTop: '1px solid #40444b', paddingTop: '1.5rem', textAlign: 'center' }}>
+        {!showLogin ? (
+          <button onClick={() => setShowLogin(true)}
+            style={{ backgroundColor: '#5865f2', color: 'white', border: 'none', borderRadius: '8px', padding: '0.8rem 1.5rem', fontWeight: 'bold', cursor: 'pointer' }}>
+            🔑 Login en servidor
+          </button>
+        ) : (
+          <div style={{ maxWidth: '300px', margin: '0 auto' }}>
+            <label style={{ display: 'block', marginBottom: '0.3rem', color: '#b9bbbe', textAlign: 'left' }}>Nombre del servidor</label>
+            <input type="text" value={loginServerName} onChange={e => setLoginServerName(e.target.value)} style={{ ...inputStyle, marginBottom: '0.8rem' }} />
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+              <button onClick={handleGoToLogin} style={{ backgroundColor: '#3ba55c', color: 'white', border: 'none', borderRadius: '6px', padding: '0.6rem 1.2rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                Ir al login
+              </button>
+              <button onClick={() => setShowLogin(false)} style={{ backgroundColor: '#555', color: 'white', border: 'none', borderRadius: '6px', padding: '0.6rem 1.2rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 const inputStyle: React.CSSProperties = {
-  padding: '0.6rem', borderRadius: '6px', border: '1px solid #40444b',
-  backgroundColor: '#40444b', color: 'white', fontSize: '0.95rem', outline: 'none',
+  width: '100%',
+  padding: '0.6rem',
+  borderRadius: '6px',
+  border: '1px solid #40444b',
+  backgroundColor: '#40444b',
+  color: 'white',
+  fontSize: '0.95rem',
+  outline: 'none',
+  marginTop: '0.3rem',
+  boxSizing: 'border-box',
 };
