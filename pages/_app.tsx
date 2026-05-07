@@ -23,6 +23,9 @@ function Layout({ children }: { children: ReactNode }) {
           <Link href="/servers/gbshop" style={{ color: "#faa61a", fontWeight: "bold", textDecoration: "none", fontSize: "0.95rem" }}>
             GB Shop
           </Link>
+          <Link href="/perm/servers/users" style={{ color: "#3ba55c", fontWeight: "bold", textDecoration: "none", fontSize: "0.95rem" }}>
+            Servers
+          </Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
           {session && (
