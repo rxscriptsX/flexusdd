@@ -10,6 +10,7 @@ export default function CreateServerPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [cooldown, setCooldown] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [cost, setCost] = useState(49);
   const [creating, setCreating] = useState(false);
   const [countdown, setCountdown] = useState(5);
@@ -17,18 +18,40 @@ export default function CreateServerPage() {
   const [showLogin, setShowLogin] = useState(false);
   const [loginServerName, setLoginServerName] = useState('');
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      Promise.all([
-        fetch(`/api/server-cooldown?userId=${session.user.id}`).then(r => r.json()),
-        fetch(`/api/user-server-count`).then(r => r.json())
-      ]).then(([cooldownRes, countRes]) => {
-        setCooldown(cooldownRes.cooldown || false);
-        setCost(countRes.cost || 49);
-      });
-    }
-  }, [session]);
+  // Cargar cooldown y coste
+  const loadData = async () => {
+    if (!session?.user?.id) return;
+    const [cooldownRes, countRes] = await Promise.all([
+      fetch(`/api/server-cooldown?userId=${session.user.id}`).then(r => r.json()),
+      fetch(`/api/user-server-count`).then(r => r.json())
+    ]);
+    setCooldown(cooldownRes.cooldown || false);
+    setCooldownRemaining(cooldownRes.remaining || 0);
+    setCost(countRes.cost || 49);
+  };
 
+  useEffect(() => {
+    if (status === 'authenticated') {
+      loadData();
+    }
+  }, [status, session]);
+
+  // Actualizar el contador de cooldown cada segundo
+  useEffect(() => {
+    if (!cooldown) return;
+    const interval = setInterval(() => {
+      setCooldownRemaining(prev => {
+        if (prev <= 1) {
+          setCooldown(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldown]);
+
+  // Limpiar temporizador de creación al desmontar
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -49,8 +72,13 @@ export default function CreateServerPage() {
         setTimeout(() => router.push(`/server/${encodeURIComponent(name.trim())}`), 1000);
       } else {
         setMessage({ type: 'error', text: data.error || 'Error al crear servidor' });
-        if (res.status === 429) setCooldown(true);
-        fetch(`/api/user-server-count`).then(r => r.json()).then(d => setCost(d.cost || 49));
+        if (res.status === 429) {
+          // Actualizar cooldown desde la API
+          loadData();
+        } else {
+          // Refrescar coste por si cambió
+          fetch(`/api/user-server-count`).then(r => r.json()).then(d => setCost(d.cost || 49));
+        }
         setCreating(false);
         setLoading(false);
       }
@@ -71,7 +99,7 @@ export default function CreateServerPage() {
       return;
     }
     if (cooldown) {
-      setMessage({ type: 'error', text: 'Debes esperar 30 segundos para crear otro.' });
+      setMessage({ type: 'error', text: `Debes esperar ${cooldownRemaining} segundos.` });
       return;
     }
     setMessage(null);
@@ -118,6 +146,12 @@ export default function CreateServerPage() {
         <br/><small style={{ color: '#99aab5' }}>El coste se duplica con cada servidor creado.</small>
       </div>
 
+      {cooldown && (
+        <div style={{ textAlign: 'center', marginBottom: '1rem', color: '#fbbf24' }}>
+          ⏳ Debes esperar {cooldownRemaining} segundos antes de crear otro servidor.
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
         <div>
           <label style={{ fontWeight: 'bold', color: '#b9bbbe' }}>Nombre del servidor (máx. 10 caracteres)</label>
@@ -127,7 +161,7 @@ export default function CreateServerPage() {
             value={name}
             onChange={e => setName(e.target.value)}
             style={inputStyle}
-            disabled={creating || loading}
+            disabled={creating || loading || cooldown}
           />
         </div>
         <div>
@@ -137,7 +171,7 @@ export default function CreateServerPage() {
             value={guildId}
             onChange={e => setGuildId(e.target.value)}
             style={inputStyle}
-            disabled={creating || loading}
+            disabled={creating || loading || cooldown}
           />
         </div>
         <button
@@ -150,7 +184,7 @@ export default function CreateServerPage() {
             fontSize: '1rem',
           }}
         >
-          {creating ? `Espera ${countdown}s...` : loading ? 'Creando...' : cooldown ? 'Espera 30 s' : `Crear Servidor (${cost} GB)`}
+          {creating ? `Espera ${countdown}s...` : loading ? 'Creando...' : cooldown ? `Espera ${cooldownRemaining}s` : `Crear Servidor (${cost} GB)`}
         </button>
       </div>
 
