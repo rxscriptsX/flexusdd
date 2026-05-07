@@ -2,27 +2,201 @@ import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 
+// ========== LISTA DE 121 COMANDOS PREDEFINIDOS ==========
+const PREDEFINED_COMMANDS = [
+  'ban', 'kick', 'mute', 'unmute', 'warn', 'clear', 'lock', 'unlock',
+  'slowmode', 'announce', 'giveaway', 'poll', 'role', 'nickname',
+  'avatar', 'userinfo', 'serverinfo', 'botinfo', 'ping', 'uptime',
+  'stats', 'invite', 'help', 'setup', 'prefix', 'config', 'settings',
+  'logs', 'welcome', 'goodbye', 'autorole', 'level', 'rank', 'xp',
+  'mylevel', 'leaderboard', 'profile', 'balance', 'daily', 'work',
+  'shop', 'buy', 'sell', 'inventory', 'transfer', 'pay', 'rob',
+  'cryto', 'price', 'stock', 'weather', 'time', 'remind', 'todo',
+  'note', 'translate', 'define', 'wikipedia', 'urban', 'trivia',
+  'quiz', 'roll', 'dice', '8ball', 'flip', 'coin', 'slots', 'blackjack',
+  'mines', 'rockpaperscissors', 'hangman', 'tictactoe', 'chess',
+  'connect4', 'battleship', 'wordle', 'meme', 'image', 'cat', 'dog',
+  'fox', 'bird', 'panda', 'koala', 'redpanda', 'quote', 'joke',
+  'fact', 'advice', 'idea', 'challenge', 'truthordare', 'neverhaveiever',
+  'story', 'madlibs', 'ascii', 'secret', 'hug', 'kiss', 'slap', 'pat',
+  'cuddle', 'dance', 'sing', 'music', 'play', 'stop', 'skip', 'queue',
+  'lyrics', 'reactionroles', 'ticket', 'close', 'delete', 'edit',
+  'embed', 'say', 'echo', 'purge', 'raidmode', 'antispam', 'antilink',
+  'antiscam', 'filter', 'wordblock', 'unblock'
+];
+
+// ========== ESTILOS GLOBALES (CSS-in-JS) ==========
+const styles = {
+  container: {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
+    backgroundSize: '400% 400%',
+    animation: 'gradient 15s ease infinite',
+    padding: '2rem',
+    color: 'white',
+    fontFamily: "'Inter', 'Segoe UI', sans-serif",
+  } as React.CSSProperties,
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '2rem',
+    flexWrap: 'wrap',
+    gap: '1rem',
+  } as React.CSSProperties,
+  title: {
+    fontSize: '2.2rem',
+    fontWeight: 800,
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+  } as React.CSSProperties,
+  logoutBtn: {
+    background: 'rgba(255,255,255,0.1)',
+    border: '1px solid rgba(255,255,255,0.2)',
+    borderRadius: '12px',
+    padding: '0.6rem 1.4rem',
+    cursor: 'pointer',
+    fontWeight: 600,
+    backdropFilter: 'blur(10px)',
+    transition: 'all 0.3s',
+  } as React.CSSProperties,
+  tabBar: {
+    display: 'flex',
+    gap: '0.8rem',
+    marginBottom: '2rem',
+    flexWrap: 'wrap',
+  } as React.CSSProperties,
+  tab: (active: boolean) => ({
+    padding: '0.7rem 1.6rem',
+    borderRadius: '14px',
+    border: 'none',
+    fontWeight: 700,
+    cursor: 'pointer',
+    background: active ? 'linear-gradient(135deg, #667eea, #764ba2)' : 'rgba(255,255,255,0.06)',
+    color: 'white',
+    boxShadow: active ? '0 8px 20px rgba(102, 126, 234, 0.4)' : 'none',
+    backdropFilter: active ? 'blur(6px)' : 'none',
+    transition: 'all 0.25s',
+    fontSize: '1rem',
+  }),
+  panel: {
+    background: 'rgba(255,255,255,0.05)',
+    backdropFilter: 'blur(12px)',
+    borderRadius: '24px',
+    padding: '2rem',
+    border: '1px solid rgba(255,255,255,0.1)',
+    boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+    minHeight: '400px',
+  },
+  consoleGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '1.5rem',
+    marginBottom: '2rem',
+  },
+  card: {
+    background: 'rgba(255,255,255,0.07)',
+    borderRadius: '20px',
+    padding: '1.8rem',
+    textAlign: 'center' as const,
+    backdropFilter: 'blur(5px)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+  },
+  metricTitle: { fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#a0aec0' },
+  metricValue: { fontSize: '2.2rem', fontWeight: 700, marginTop: '0.4rem' },
+  input: {
+    width: '100%',
+    padding: '0.8rem 1rem',
+    borderRadius: '12px',
+    border: '1px solid rgba(255,255,255,0.15)',
+    background: 'rgba(255,255,255,0.05)',
+    color: 'white',
+    fontSize: '1rem',
+    outline: 'none',
+    backdropFilter: 'blur(4px)',
+    marginTop: '0.4rem',
+  },
+  commandList: {
+    maxHeight: '500px',
+    overflowY: 'auto' as const,
+    paddingRight: '0.5rem',
+    marginTop: '1.5rem',
+  },
+  commandItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '0.7rem 1rem',
+    marginBottom: '0.5rem',
+    background: 'rgba(255,255,255,0.03)',
+    borderRadius: '12px',
+    border: '1px solid rgba(255,255,255,0.05)',
+    transition: 'background 0.2s',
+  },
+  toggle: (enabled: boolean) => ({
+    width: '50px',
+    height: '28px',
+    borderRadius: '28px',
+    background: enabled ? 'linear-gradient(135deg, #48bb78, #38a169)' : 'rgba(255,255,255,0.15)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '2px',
+    transition: 'all 0.3s',
+  }),
+  toggleKnob: (enabled: boolean) => ({
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%',
+    background: 'white',
+    transform: enabled ? 'translateX(22px)' : 'translateX(0)',
+    transition: 'transform 0.3s',
+  }),
+  settingsBox: {
+    background: 'rgba(0,0,0,0.2)',
+    borderRadius: '14px',
+    padding: '1.5rem',
+    fontFamily: 'monospace',
+    fontSize: '0.95rem',
+    overflowX: 'auto' as const,
+  },
+  passwordDisplay: {
+    background: 'rgba(0,0,0,0.3)',
+    padding: '0.8rem',
+    borderRadius: '10px',
+    wordBreak: 'break-all' as const,
+    marginTop: '1rem',
+  },
+};
+
+// ========== COMPONENTE PRINCIPAL ==========
 export default function ServerPanel() {
   const router = useRouter();
   const { name } = router.query;
   const { data: session, status } = useSession();
+
   const [server, setServer] = useState<any>(null);
-  const [authenticated, setAuthenticated] = useState(false); // se activa si es dueño o tras login
-
-  // Para el formulario de login (si no es dueño)
-  const [loginName, setLoginName] = useState('');
-  const [loginId, setLoginId] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [loginMsg, setLoginMsg] = useState('');
-
+  const [authenticated, setAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
   const [tab, setTab] = useState<'console' | 'users' | 'commands' | 'settings'>('console');
 
-  // Simulación de recursos
+  // Recursos simulados
   const [cpu, setCpu] = useState(0);
   const [mem, setMem] = useState(0);
   const [net, setNet] = useState(0);
 
-  // Carga los datos del servidor
+  // Comandos predefinidos (KV guarda un objeto { [cmdName]: boolean })
+  const [predefinedCmds, setPredefinedCmds] = useState<Record<string, boolean>>({});
+  const [customCmds, setCustomCmds] = useState<{ name: string; response: string }[]>([]);
+
+  // Usuarios
+  const [users, setUsers] = useState<string[]>([]);
+  const [newUser, setNewUser] = useState('');
+
+  // Cargar datos del servidor
   const loadServer = async () => {
     if (!name) return;
     try {
@@ -32,246 +206,281 @@ export default function ServerPanel() {
     } catch {}
   };
 
+  // Cargar comandos
+  const loadCommands = async () => {
+    if (!name) return;
+    try {
+      const res = await fetch(`/api/server-commands?name=${encodeURIComponent(name as string)}`);
+      const data = await res.json();
+      setPredefinedCmds(data.commands || {});
+    } catch {}
+  };
+
+  // Cargar comandos personalizados
+  const loadCustomCmds = async () => {
+    if (!name) return;
+    try {
+      const res = await fetch(`/api/server-custom-commands?name=${encodeURIComponent(name as string)}`);
+      const data = await res.json();
+      setCustomCmds(data.commands || []);
+    } catch {}
+  };
+
+  // Cargar usuarios
+  const loadUsers = async () => {
+    if (!name) return;
+    try {
+      const res = await fetch(`/api/server-users?name=${encodeURIComponent(name as string)}`);
+      const data = await res.json();
+      setUsers(data.users || []);
+    } catch {}
+  };
+
   useEffect(() => { loadServer(); }, [name]);
 
-  // Si el usuario es el dueño, autenticar automáticamente
   useEffect(() => {
     if (server && session?.user?.id === server.owner) {
       setAuthenticated(true);
     }
   }, [server, session]);
 
-  // Iniciar simulaciones de consola si está autenticado
   useEffect(() => {
-    if (!authenticated) return;
-    const cpuInterval = setInterval(() => setCpu(Math.floor(Math.random() * 10001) / 100), 1260);
-    const memInterval = setInterval(() => setMem(Math.floor(Math.random() * 8000) / 100), 2100);
-    const netInterval = setInterval(() => setNet(Math.floor(Math.random() * 5000) / 100), 3500);
-    return () => {
-      clearInterval(cpuInterval);
-      clearInterval(memInterval);
-      clearInterval(netInterval);
-    };
+    if (authenticated) {
+      loadCommands();
+      loadCustomCmds();
+      loadUsers();
+      // Simular consola
+      const cpuInt = setInterval(() => setCpu(+(Math.random() * 100).toFixed(1)), 1260);
+      const memInt = setInterval(() => setMem(+(Math.random() * 8).toFixed(2)), 2100);
+      const netInt = setInterval(() => setNet(+(Math.random() * 100).toFixed(1)), 3500);
+      return () => { clearInterval(cpuInt); clearInterval(memInt); clearInterval(netInt); };
+    }
   }, [authenticated]);
 
   if (status === 'loading') return <p style={{ color: 'white', textAlign: 'center' }}>Cargando sesión...</p>;
   if (!session) { router.push('/login'); return null; }
   if (!server) return <p style={{ color: 'white', textAlign: 'center' }}>Servidor no encontrado.</p>;
 
-  // Si no está autenticado (no es dueño o no ha hecho login), mostrar formulario
+  // Login (solo contraseña)
   if (!authenticated) {
     const handleLogin = () => {
-      if (loginName !== name || loginId !== server.guildId || loginPassword !== server.password) {
-        setLoginMsg('Credenciales incorrectas.');
-        return;
+      if (password === server.password) {
+        setAuthenticated(true);
+        setLoginError('');
+      } else {
+        setLoginError('Contraseña incorrecta.');
       }
-      setAuthenticated(true);
     };
+
     return (
-      <div style={{ maxWidth: '400px', margin: '0 auto', color: 'white' }}>
-        <h2 style={{ color: '#5865f2' }}>Login en {name}</h2>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Nombre del servidor</label>
-          <input value={loginName} onChange={e => setLoginName(e.target.value)} style={inputStyle} />
+      <div style={{ ...styles.container, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <div style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(16px)', borderRadius: '28px', padding: '3rem', maxWidth: '420px', width: '100%', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+          <h1 style={{ textAlign: 'center', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #667eea, #764ba2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '2rem' }}>
+            {name}
+          </h1>
+          <p style={{ textAlign: 'center', color: '#a0aec0', marginBottom: '2rem' }}>Introduce la contraseña secreta</p>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Contraseña de 72 dígitos"
+            style={styles.input}
+          />
+          <button
+            onClick={handleLogin}
+            style={{
+              width: '100%',
+              marginTop: '1.5rem',
+              padding: '0.9rem',
+              borderRadius: '14px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #667eea, #764ba2)',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: '1.1rem',
+              cursor: 'pointer',
+              transition: 'transform 0.2s',
+            }}
+          >
+            Acceder
+          </button>
+          {loginError && <p style={{ color: '#fc8181', marginTop: '1rem', textAlign: 'center' }}>{loginError}</p>}
         </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>ID del servidor</label>
-          <input value={loginId} onChange={e => setLoginId(e.target.value)} style={inputStyle} />
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Contraseña (72 dígitos)</label>
-          <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} style={inputStyle} />
-        </div>
-        <button onClick={handleLogin} style={{ backgroundColor: '#5865f2', color: 'white', border: 'none', borderRadius: '8px', padding: '0.8rem', width: '100%', fontWeight: 'bold', cursor: 'pointer' }}>
-          Iniciar sesión
-        </button>
-        {loginMsg && <p style={{ color: '#ed4245', marginTop: '0.5rem' }}>{loginMsg}</p>}
       </div>
     );
   }
 
-  // Panel principal (autenticado)
+  // --- Funciones para comandos ---
+  const toggleCommand = async (cmdName: string, enabled: boolean) => {
+    const newCmds = { ...predefinedCmds, [cmdName]: enabled };
+    setPredefinedCmds(newCmds);
+    await fetch('/api/toggle-server-command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, cmdName, enabled }),
+    });
+  };
+
+  const addCustomCommand = async () => {
+    const cmdName = (document.getElementById('newCmdName') as HTMLInputElement)?.value;
+    const response = (document.getElementById('newCmdResponse') as HTMLInputElement)?.value;
+    if (!cmdName || !response) return;
+    await fetch('/api/add-server-command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, cmdName, response }),
+    });
+    loadCustomCmds();
+    (document.getElementById('newCmdName') as HTMLInputElement).value = '';
+    (document.getElementById('newCmdResponse') as HTMLInputElement).value = '';
+  };
+
+  const removeCustomCommand = async (cmdName: string) => {
+    await fetch('/api/remove-server-command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, cmdName }),
+    });
+    loadCustomCmds();
+  };
+
+  const addUser = async () => {
+    if (!newUser.trim()) return;
+    await fetch('/api/add-server-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, userId: newUser.trim() }),
+    });
+    setNewUser('');
+    loadUsers();
+  };
+
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', color: 'white' }}>
-      <h1 style={{ color: '#5865f2' }}>{name}</h1>
-      {/* Pestañas */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-        {(['console','users','commands','settings'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            style={{ ...styles.tab, backgroundColor: tab === t ? '#5865f2' : '#2c2f33' }}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h1 style={styles.title}>{name}</h1>
+        <button style={styles.logoutBtn} onClick={() => router.push('/dashboard')}>
+          ← Volver al Dashboard
+        </button>
+      </div>
+
+      <div style={styles.tabBar}>
+        {(['console', 'users', 'commands', 'settings'] as const).map(t => (
+          <button key={t} style={styles.tab(tab === t)} onClick={() => setTab(t)}>
+            {t === 'console' ? '🖥️ Consola' : t === 'users' ? '👥 Usuarios' : t === 'commands' ? '⚡ Comandos' : '⚙️ Ajustes'}
           </button>
         ))}
       </div>
 
-      {/* Contenido de pestañas */}
-      {tab === 'console' && (
-        <div>
-          <h3>Consola</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem' }}>
-            <Card title="CPU" value={`${cpu}%`} />
-            <Card title="Memory" value={`${mem} MiB`} />
-            <Card title="Network" value={`${net} KiB/s`} />
+      <div style={styles.panel}>
+        {tab === 'console' && (
+          <div>
+            <div style={styles.consoleGrid}>
+              <div style={styles.card}>
+                <div style={styles.metricTitle}>CPU</div>
+                <div style={styles.metricValue}>{cpu}%</div>
+              </div>
+              <div style={styles.card}>
+                <div style={styles.metricTitle}>Memoria</div>
+                <div style={styles.metricValue}>{mem} GiB</div>
+              </div>
+              <div style={styles.card}>
+                <div style={styles.metricTitle}>Red</div>
+                <div style={styles.metricValue}>{net} Mbps</div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {tab === 'users' && (
-        <div>
-          <h3>Usuarios con acceso</h3>
-          <UserManager serverName={name as string} />
-        </div>
-      )}
-
-      {tab === 'commands' && (
-        <div>
-          <h3>Comandos personalizados (hasta 121)</h3>
-          <CommandsSection serverName={name as string} />
-        </div>
-      )}
-
-      {tab === 'settings' && (
-        <div>
-          <h3>Ajustes del servidor</h3>
-          <div style={{ backgroundColor: '#2c2f33', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
-            <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-              {JSON.stringify({ owner: server.owner, guildId: server.guildId, users: server.users }, null, 2)}
-            </pre>
+        {tab === 'users' && (
+          <div>
+            <h3 style={{ marginBottom: '1.5rem' }}>Gestión de acceso</h3>
+            <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem' }}>
+              <input
+                placeholder="ID de Discord del usuario"
+                value={newUser}
+                onChange={(e) => setNewUser(e.target.value)}
+                style={{ ...styles.input, flex: 1 }}
+              />
+              <button onClick={addUser} style={{ padding: '0.8rem 1.5rem', borderRadius: '12px', background: 'linear-gradient(135deg, #667eea, #764ba2)', border: 'none', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
+                Añadir
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
+              {users.map(u => (
+                <span key={u} style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '20px', padding: '0.4rem 1rem', fontSize: '0.9rem' }}>
+                  {u}
+                </span>
+              ))}
+            </div>
           </div>
-          <p style={{ color: '#99aab5' }}>
-            🔑 Contraseña del servidor: <code>{server.password}</code>
-            <br/><small>Guárdala bien, solo se muestra aquí.</small>
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
+        )}
 
-// --- Subcomponentes (idénticos a la versión anterior, pero los incluyo por completitud) ---
-function Card({ title, value }: { title: string; value: string }) {
-  return (
-    <div style={{ backgroundColor: '#2c2f33', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
-      <div style={{ fontSize: '0.9rem', color: '#99aab5' }}>{title}</div>
-      <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{value}</div>
-    </div>
-  );
-}
+        {tab === 'commands' && (
+          <div>
+            <h3 style={{ marginBottom: '0.5rem' }}>Comandos predefinidos ({Object.keys(predefinedCmds).filter(k => predefinedCmds[k]).length} activos)</h3>
+            <div style={styles.commandList}>
+              {PREDEFINED_COMMANDS.map(cmd => (
+                <div key={cmd} style={styles.commandItem}>
+                  <span style={{ fontWeight: 600 }}>{cmd}</span>
+                  <div
+                    style={styles.toggle(!!predefinedCmds[cmd])}
+                    onClick={() => toggleCommand(cmd, !predefinedCmds[cmd])}
+                  >
+                    <div style={styles.toggleKnob(!!predefinedCmds[cmd])} />
+                  </div>
+                </div>
+              ))}
+            </div>
 
-function UserManager({ serverName }: { serverName: string }) {
-  const [users, setUsers] = useState<string[]>([]);
-  const [newUserId, setNewUserId] = useState('');
-  const [msg, setMsg] = useState('');
+            <div style={{ marginTop: '3rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '2rem' }}>
+              <h3 style={{ marginBottom: '0.5rem' }}>Comandos personalizados</h3>
+              <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem' }}>
+                <input id="newCmdName" placeholder="Nombre" style={{ ...styles.input, flex: 1 }} />
+                <input id="newCmdResponse" placeholder="Respuesta" style={{ ...styles.input, flex: 2 }} />
+                <button onClick={addCustomCommand} style={{ padding: '0.8rem 1.5rem', borderRadius: '12px', background: 'linear-gradient(135deg, #667eea, #764ba2)', border: 'none', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
+                  +
+                </button>
+              </div>
+              {customCmds.map(cmd => (
+                <div key={cmd.name} style={{ ...styles.commandItem, justifyContent: 'space-between' }}>
+                  <span><strong>{cmd.name}</strong>: {cmd.response}</span>
+                  <button onClick={() => removeCustomCommand(cmd.name)} style={{ background: 'none', border: 'none', color: '#fc8181', cursor: 'pointer', fontSize: '1.2rem' }}>
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-  const loadUsers = async () => {
-    const res = await fetch(`/api/server-users?name=${encodeURIComponent(serverName)}`);
-    const d = await res.json();
-    setUsers(d.users || []);
-  };
-  useEffect(() => { loadUsers(); }, []);
-
-  const addUser = async () => {
-    const res = await fetch('/api/add-server-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: serverName, userId: newUserId.trim() }),
-    });
-    const d = await res.json();
-    if (res.ok) { setMsg('Usuario añadido.'); setNewUserId(''); loadUsers(); }
-    else setMsg(d.error || 'Error');
-  };
-
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-        <input placeholder="ID de usuario" value={newUserId} onChange={e => setNewUserId(e.target.value)} style={inputStyle} />
-        <button onClick={addUser} style={styles.primaryBtn}>Añadir</button>
+        {tab === 'settings' && (
+          <div>
+            <h3 style={{ marginBottom: '1.5rem' }}>Detalles del servidor</h3>
+            <div style={styles.settingsBox}>
+              <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                {JSON.stringify({ owner: server.owner, guildId: server.guildId, users: server.users }, null, 2)}
+              </pre>
+            </div>
+            <div style={styles.passwordDisplay}>
+              <span style={{ color: '#a0aec0' }}>Contraseña secreta: </span>
+              <code style={{ color: '#fbbf24', fontWeight: 600 }}>{server.password}</code>
+              <p style={{ fontSize: '0.8rem', color: '#718096', marginTop: '0.5rem' }}>
+                Solo visible aquí. Guárdala para acceder en el futuro.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
-      {msg && <p style={{ color: msg.includes('Error') ? '#ed4245' : '#3ba55c' }}>{msg}</p>}
-      <ul style={{ paddingLeft: '1.2rem' }}>{users.map(u => <li key={u}>{u}</li>)}</ul>
+
+      {/* Animación del fondo */}
+      <style jsx>{`
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
     </div>
   );
 }
-
-function CommandsSection({ serverName }: { serverName: string }) {
-  const [commands, setCommands] = useState<{ name: string; response: string }[]>([]);
-  const [newName, setNewName] = useState('');
-  const [newResp, setNewResp] = useState('');
-
-  const load = async () => {
-    const res = await fetch(`/api/server-commands?name=${encodeURIComponent(serverName)}`);
-    const d = await res.json();
-    setCommands(d.commands || []);
-  };
-  useEffect(() => { load(); }, []);
-
-  const add = async () => {
-    await fetch('/api/add-server-command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: serverName, cmdName: newName, response: newResp }),
-    });
-    setNewName(''); setNewResp('');
-    load();
-  };
-
-  const remove = async (cmdName: string) => {
-    await fetch('/api/remove-server-command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: serverName, cmdName }),
-    });
-    load();
-  };
-
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-        <input placeholder="Nombre comando" value={newName} onChange={e => setNewName(e.target.value)} style={inputStyle} />
-        <input placeholder="Respuesta" value={newResp} onChange={e => setNewResp(e.target.value)} style={inputStyle} />
-        <button onClick={add} style={styles.primaryBtn}>+</button>
-      </div>
-      {commands.length === 0 && <p>No hay comandos. Añade el primero.</p>}
-      {commands.map(c => (
-        <div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#2c2f33', padding: '0.3rem 0.6rem', borderRadius: '4px', marginBottom: '0.3rem' }}>
-          <span><strong>{c.name}</strong>: {c.response}</span>
-          <button onClick={() => remove(c.name)} style={{ background: 'none', border: 'none', color: '#ed4245', cursor: 'pointer' }}>✕</button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Estilos reutilizados
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '0.6rem',
-  borderRadius: '6px',
-  border: '1px solid #40444b',
-  backgroundColor: '#40444b',
-  color: 'white',
-  fontSize: '0.95rem',
-  outline: 'none',
-  marginTop: '0.3rem',
-  boxSizing: 'border-box',
-};
-
-const styles = {
-  tab: {
-    border: 'none',
-    borderRadius: '6px',
-    padding: '0.5rem 1rem',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    color: 'white',
-  },
-  primaryBtn: {
-    backgroundColor: '#5865f2',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '0.5rem 1rem',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-  },
-};
