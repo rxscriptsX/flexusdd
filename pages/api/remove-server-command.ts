@@ -12,8 +12,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const data: any = await kv.get(key);
   if (!data || data.owner !== token.sub) return res.status(403).json({ error: 'No autorizado' });
 
-  const cmdKey = `server:${name}:commands`;
-  const commands: any[] = await kv.get(cmdKey) || [];
+  const cmdKey = `server:${name}:customCommands`;
+  const commands: any[] = (await kv.get(cmdKey)) || [];
   const filtered = commands.filter(c => c.name !== cmdName);
   await kv.set(cmdKey, filtered);
   return res.status(200).json({ success: true });
