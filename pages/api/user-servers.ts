@@ -8,7 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token || !token.sub) return res.status(401).json({ error: 'No autorizado' });
 
-  const userId = token.sub as string;
+  const userId = token.sub;
   const servers = await kv.smembers(`user:${userId}:servers`);
   res.status(200).json({ servers });
 }
