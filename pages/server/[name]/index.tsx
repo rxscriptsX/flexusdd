@@ -7,18 +7,22 @@ export default function ServerPanel() {
   const { name } = router.query;
   const { data: session, status } = useSession();
   const [server, setServer] = useState<any>(null);
-  const [authenticated, setAuthenticated] = useState(false); // login local
+  const [authenticated, setAuthenticated] = useState(false); // se activa si es dueño o tras login
+
+  // Para el formulario de login (si no es dueño)
   const [loginName, setLoginName] = useState('');
   const [loginId, setLoginId] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginMsg, setLoginMsg] = useState('');
+
   const [tab, setTab] = useState<'console' | 'users' | 'commands' | 'settings'>('console');
 
-  // Para consola simulada
+  // Simulación de recursos
   const [cpu, setCpu] = useState(0);
   const [mem, setMem] = useState(0);
   const [net, setNet] = useState(0);
 
+  // Carga los datos del servidor
   const loadServer = async () => {
     if (!name) return;
     try {
@@ -30,24 +34,34 @@ export default function ServerPanel() {
 
   useEffect(() => { loadServer(); }, [name]);
 
-  // Simular CPU (cada 1.26s), Mem (cada 2.1s), Net (cada 3.5s)
+  // Si el usuario es el dueño, autenticar automáticamente
+  useEffect(() => {
+    if (server && session?.user?.id === server.owner) {
+      setAuthenticated(true);
+    }
+  }, [server, session]);
+
+  // Iniciar simulaciones de consola si está autenticado
   useEffect(() => {
     if (!authenticated) return;
-    const cpuInterval = setInterval(() => setCpu(Math.floor(Math.random() * 10001)/100), 1260);
-    const memInterval = setInterval(() => setMem(Math.floor(Math.random() * 8000)/100), 2100);
-    const netInterval = setInterval(() => setNet(Math.floor(Math.random() * 5000)/100), 3500);
-    return () => { clearInterval(cpuInterval); clearInterval(memInterval); clearInterval(netInterval); };
+    const cpuInterval = setInterval(() => setCpu(Math.floor(Math.random() * 10001) / 100), 1260);
+    const memInterval = setInterval(() => setMem(Math.floor(Math.random() * 8000) / 100), 2100);
+    const netInterval = setInterval(() => setNet(Math.floor(Math.random() * 5000) / 100), 3500);
+    return () => {
+      clearInterval(cpuInterval);
+      clearInterval(memInterval);
+      clearInterval(netInterval);
+    };
   }, [authenticated]);
 
-  if (status === 'loading') return <p style={{ color: 'white' }}>Cargando sesión...</p>;
+  if (status === 'loading') return <p style={{ color: 'white', textAlign: 'center' }}>Cargando sesión...</p>;
   if (!session) { router.push('/login'); return null; }
-
   if (!server) return <p style={{ color: 'white', textAlign: 'center' }}>Servidor no encontrado.</p>;
 
-  // Login local
+  // Si no está autenticado (no es dueño o no ha hecho login), mostrar formulario
   if (!authenticated) {
     const handleLogin = () => {
-      if (loginName !== name || loginId !== (server.guildId || '') || loginPassword !== server.password) {
+      if (loginName !== name || loginId !== server.guildId || loginPassword !== server.password) {
         setLoginMsg('Credenciales incorrectas.');
         return;
       }
@@ -56,15 +70,27 @@ export default function ServerPanel() {
     return (
       <div style={{ maxWidth: '400px', margin: '0 auto', color: 'white' }}>
         <h2 style={{ color: '#5865f2' }}>Login en {name}</h2>
-        <Field label="Nombre del servidor"><input value={loginName} onChange={e => setLoginName(e.target.value)} style={inputStyle} /></Field>
-        <Field label="ID del servidor"><input value={loginId} onChange={e => setLoginId(e.target.value)} style={inputStyle} /></Field>
-        <Field label="Contraseña"><input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} style={inputStyle} /></Field>
-        <button onClick={handleLogin} style={{ ...styles.primaryBtn, marginTop: '1rem' }}>Login</button>
+        <div style={{ marginBottom: '1rem' }}>
+          <label>Nombre del servidor</label>
+          <input value={loginName} onChange={e => setLoginName(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: '1rem' }}>
+          <label>ID del servidor</label>
+          <input value={loginId} onChange={e => setLoginId(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: '1rem' }}>
+          <label>Contraseña (72 dígitos)</label>
+          <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} style={inputStyle} />
+        </div>
+        <button onClick={handleLogin} style={{ backgroundColor: '#5865f2', color: 'white', border: 'none', borderRadius: '8px', padding: '0.8rem', width: '100%', fontWeight: 'bold', cursor: 'pointer' }}>
+          Iniciar sesión
+        </button>
         {loginMsg && <p style={{ color: '#ed4245', marginTop: '0.5rem' }}>{loginMsg}</p>}
       </div>
     );
   }
 
+  // Panel principal (autenticado)
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', color: 'white' }}>
       <h1 style={{ color: '#5865f2' }}>{name}</h1>
@@ -78,7 +104,7 @@ export default function ServerPanel() {
         ))}
       </div>
 
-      {/* Contenido */}
+      {/* Contenido de pestañas */}
       {tab === 'console' && (
         <div>
           <h3>Consola</h3>
@@ -99,7 +125,7 @@ export default function ServerPanel() {
 
       {tab === 'commands' && (
         <div>
-          <h3>Comandos personalizados (más de 121 disponibles)</h3>
+          <h3>Comandos personalizados (hasta 121)</h3>
           <CommandsSection serverName={name as string} />
         </div>
       )}
@@ -107,17 +133,22 @@ export default function ServerPanel() {
       {tab === 'settings' && (
         <div>
           <h3>Ajustes del servidor</h3>
-          <pre style={{ backgroundColor: '#2c2f33', padding: '1rem', borderRadius: '8px' }}>
-            {JSON.stringify(server, null, 2)}
-          </pre>
-          <p style={{ color: '#99aab5' }}>Contraseña: {server.password}</p>
+          <div style={{ backgroundColor: '#2c2f33', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+            <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+              {JSON.stringify({ owner: server.owner, guildId: server.guildId, users: server.users }, null, 2)}
+            </pre>
+          </div>
+          <p style={{ color: '#99aab5' }}>
+            🔑 Contraseña del servidor: <code>{server.password}</code>
+            <br/><small>Guárdala bien, solo se muestra aquí.</small>
+          </p>
         </div>
       )}
     </div>
   );
 }
 
-// Subcomponentes (definir dentro del mismo archivo o importarlos)
+// --- Subcomponentes (idénticos a la versión anterior, pero los incluyo por completitud) ---
 function Card({ title, value }: { title: string; value: string }) {
   return (
     <div style={{ backgroundColor: '#2c2f33', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
@@ -157,7 +188,7 @@ function UserManager({ serverName }: { serverName: string }) {
         <button onClick={addUser} style={styles.primaryBtn}>Añadir</button>
       </div>
       {msg && <p style={{ color: msg.includes('Error') ? '#ed4245' : '#3ba55c' }}>{msg}</p>}
-      <ul>{users.map(u => <li key={u}>{u}</li>)}</ul>
+      <ul style={{ paddingLeft: '1.2rem' }}>{users.map(u => <li key={u}>{u}</li>)}</ul>
     </div>
   );
 }
@@ -211,27 +242,36 @@ function CommandsSection({ serverName }: { serverName: string }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: '1rem' }}>
-      <label style={{ display: 'block', fontWeight: 'bold', color: '#b9bbbe', marginBottom: '0.3rem' }}>{label}</label>
-      {children}
-    </div>
-  );
-}
-
+// Estilos reutilizados
 const inputStyle: React.CSSProperties = {
-  padding: '0.6rem', borderRadius: '6px', border: '1px solid #40444b',
-  backgroundColor: '#40444b', color: 'white', fontSize: '0.95rem', outline: 'none', flex: 1,
+  width: '100%',
+  padding: '0.6rem',
+  borderRadius: '6px',
+  border: '1px solid #40444b',
+  backgroundColor: '#40444b',
+  color: 'white',
+  fontSize: '0.95rem',
+  outline: 'none',
+  marginTop: '0.3rem',
+  boxSizing: 'border-box',
 };
 
 const styles = {
-  primaryBtn: {
-    backgroundColor: '#5865f2', color: 'white', border: 'none',
-    borderRadius: '6px', padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer',
-  },
   tab: {
-    border: 'none', borderRadius: '6px', padding: '0.5rem 1rem',
-    fontWeight: 'bold', cursor: 'pointer', color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '0.5rem 1rem',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    color: 'white',
+  },
+  primaryBtn: {
+    backgroundColor: '#5865f2',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '0.5rem 1rem',
+    fontWeight: 'bold',
+    cursor: 'pointer',
   },
 };
