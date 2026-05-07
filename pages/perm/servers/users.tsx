@@ -1,6 +1,6 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function CreateServerPage() {
   const { data: session, status } = useSession();
@@ -10,9 +10,10 @@ export default function CreateServerPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [cooldown, setCooldown] = useState(false);
-  const [cost, setCost] = useState(49); // coste actual
-  const [waitSeconds, setWaitSeconds] = useState(0);
-  const [timerActive, setTimerActive] = useState(false);
+  const [cost, setCost] = useState(49);
+  const [waitCreate, setWaitCreate] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Login separado
   const [showLogin, setShowLogin] = useState(false);
@@ -30,23 +31,12 @@ export default function CreateServerPage() {
     }
   }, [session]);
 
-  // Control del temporizador de 30 segundos
+  // Limpiar temporizador al desmontar
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timerActive && waitSeconds > 0) {
-      interval = setInterval(() => {
-        setWaitSeconds(prev => {
-          if (prev <= 1) {
-            setTimerActive(false);
-            performCreate();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [timerActive, waitSeconds]);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   const performCreate = async () => {
     setLoading(true);
@@ -63,11 +53,11 @@ export default function CreateServerPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Error al crear servidor' });
         if (res.status === 429) setCooldown(true);
-        // Refrescar coste en caso de error (el contador no se incrementó)
+        // Refrescar coste
         fetch(`/api/user-server-count`).then(r => r.json()).then(d => setCost(d.cost || 49));
       }
-    } catch {
-      setMessage({ type: 'error', text: 'Error de conexión.' });
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Error de conexión. Revisa la consola (F12) para más detalles.' });
     } finally {
       setLoading(false);
     }
@@ -83,13 +73,24 @@ export default function CreateServerPage() {
       return;
     }
     if (cooldown) {
-      setMessage({ type: 'error', text: 'Debes esperar 32 horas antes de crear otro servidor.' });
+      setMessage({ type: 'error', text: 'Debes esperar 30 segundos para crear otro.' });
       return;
     }
-    // Iniciar cuenta atrás de 30 segundos
-    setWaitSeconds(30);
-    setTimerActive(true);
-    setMessage(null);
+
+    // Iniciar cuenta atrás de 5 segundos
+    setWaitCreate(true);
+    setCountdown(5);
+    timerRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          setWaitCreate(false);
+          performCreate();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const handleGoToLogin = () => {
@@ -123,20 +124,36 @@ export default function CreateServerPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
         <div>
           <label style={{ fontWeight: 'bold', color: '#b9bbbe' }}>Nombre del servidor (máx. 10 caracteres)</label>
-          <input type="text" maxLength={10} value={name} onChange={e => setName(e.target.value)} style={inputStyle} disabled={timerActive || loading} />
+          <input
+            type="text"
+            maxLength={10}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            style={inputStyle}
+            disabled={waitCreate || loading}
+          />
         </div>
         <div>
           <label style={{ fontWeight: 'bold', color: '#b9bbbe' }}>ID del servidor de Discord</label>
-          <input type="text" value={guildId} onChange={e => setGuildId(e.target.value)} style={inputStyle} disabled={timerActive || loading} />
+          <input
+            type="text"
+            value={guildId}
+            onChange={e => setGuildId(e.target.value)}
+            style={inputStyle}
+            disabled={waitCreate || loading}
+          />
         </div>
-        <button onClick={handleCreate} disabled={timerActive || loading || cooldown}
+        <button
+          onClick={handleCreate}
+          disabled={waitCreate || loading || cooldown}
           style={{
-            backgroundColor: timerActive || loading || cooldown ? '#555' : '#3ba55c',
+            backgroundColor: waitCreate || loading || cooldown ? '#555' : '#3ba55c',
             color: 'white', border: 'none', borderRadius: '8px', padding: '0.8rem',
-            fontWeight: 'bold', cursor: timerActive || loading || cooldown ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold', cursor: waitCreate || loading || cooldown ? 'not-allowed' : 'pointer',
             fontSize: '1rem',
-          }}>
-          {timerActive ? `Espera ${waitSeconds}s...` : loading ? 'Creando...' : cooldown ? 'Espera 32 horas' : `Crear Servidor (${cost} GB)`}
+          }}
+        >
+          {waitCreate ? `Espera ${countdown}s...` : loading ? 'Creando...' : cooldown ? 'Espera 30 s' : `Crear Servidor (${cost} GB)`}
         </button>
       </div>
 
