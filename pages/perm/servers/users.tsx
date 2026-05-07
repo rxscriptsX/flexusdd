@@ -11,11 +11,9 @@ export default function CreateServerPage() {
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [cooldown, setCooldown] = useState(false);
   const [cost, setCost] = useState(49);
-  const [waitCreate, setWaitCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Login separado
   const [showLogin, setShowLogin] = useState(false);
   const [loginServerName, setLoginServerName] = useState('');
 
@@ -31,7 +29,6 @@ export default function CreateServerPage() {
     }
   }, [session]);
 
-  // Limpiar temporizador al desmontar
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -53,12 +50,13 @@ export default function CreateServerPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Error al crear servidor' });
         if (res.status === 429) setCooldown(true);
-        // Refrescar coste
         fetch(`/api/user-server-count`).then(r => r.json()).then(d => setCost(d.cost || 49));
+        setCreating(false);
+        setLoading(false);
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Error de conexión. Revisa la consola (F12) para más detalles.' });
-    } finally {
+      setCreating(false);
       setLoading(false);
     }
   };
@@ -76,15 +74,14 @@ export default function CreateServerPage() {
       setMessage({ type: 'error', text: 'Debes esperar 30 segundos para crear otro.' });
       return;
     }
-
-    // Iniciar cuenta atrás de 5 segundos
-    setWaitCreate(true);
+    setMessage(null);
+    setCreating(true);
     setCountdown(5);
     timerRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
-          setWaitCreate(false);
+          setCreating(false);
           performCreate();
           return 0;
         }
@@ -130,7 +127,7 @@ export default function CreateServerPage() {
             value={name}
             onChange={e => setName(e.target.value)}
             style={inputStyle}
-            disabled={waitCreate || loading}
+            disabled={creating || loading}
           />
         </div>
         <div>
@@ -140,24 +137,24 @@ export default function CreateServerPage() {
             value={guildId}
             onChange={e => setGuildId(e.target.value)}
             style={inputStyle}
-            disabled={waitCreate || loading}
+            disabled={creating || loading}
           />
         </div>
         <button
           onClick={handleCreate}
-          disabled={waitCreate || loading || cooldown}
+          disabled={creating || loading || cooldown}
           style={{
-            backgroundColor: waitCreate || loading || cooldown ? '#555' : '#3ba55c',
+            backgroundColor: (creating || loading || cooldown) ? '#555' : '#3ba55c',
             color: 'white', border: 'none', borderRadius: '8px', padding: '0.8rem',
-            fontWeight: 'bold', cursor: waitCreate || loading || cooldown ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold', cursor: (creating || loading || cooldown) ? 'not-allowed' : 'pointer',
             fontSize: '1rem',
           }}
         >
-          {waitCreate ? `Espera ${countdown}s...` : loading ? 'Creando...' : cooldown ? 'Espera 30 s' : `Crear Servidor (${cost} GB)`}
+          {creating ? `Espera ${countdown}s...` : loading ? 'Creando...' : cooldown ? 'Espera 30 s' : `Crear Servidor (${cost} GB)`}
         </button>
       </div>
 
-      {/* Login separado */}
+      {/* Login en servidor */}
       <div style={{ borderTop: '1px solid #40444b', paddingTop: '1.5rem', textAlign: 'center' }}>
         {!showLogin ? (
           <button onClick={() => setShowLogin(true)}
