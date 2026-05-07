@@ -3,7 +3,7 @@ import { kv } from '@vercel/kv';
 import { consumeStorage } from '../../lib/storage';
 import { getToken } from 'next-auth/jwt';
 
-const COOLDOWN_SECONDS = 32 * 3600;
+const COOLDOWN_SECONDS = 60; // 1 minuto en lugar de 32 horas
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -17,10 +17,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Datos inválidos' });
   }
 
-  // Verificar cooldown de 32 horas
+  // Verificar cooldown de 1 minuto
   const cooldownKey = `create-server-cooldown:${userId}`;
   const existing = await kv.get(cooldownKey);
-  if (existing) return res.status(429).json({ error: 'Debes esperar 32 horas para crear otro servidor.' });
+  if (existing) return res.status(429).json({ error: 'Debes esperar 1 minuto antes de crear otro servidor.' });
 
   // Verificar si el nombre ya existe
   const globalKey = `server:${name}:owner`;
@@ -51,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     users: [userId],
   });
 
-  // Establecer cooldown de 32 horas
+  // Establecer cooldown de 1 minuto
   await kv.set(cooldownKey, '1', { ex: COOLDOWN_SECONDS });
 
   return res.status(200).json({ success: true, password, cost });
